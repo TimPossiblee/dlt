@@ -1,0 +1,45 @@
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["ALL"]
+ignore = [
+    "ANN204",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    # disable for formatter https://docs.astral.sh/ruff/formatter/#format-suppression
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+]
+
+[lint.extend-per-file-ignores]
+"**/tests/**/*.py" = [
+    "ANN201",
+    "T201",
+    "S101",
+    "ARG",
+    "FBT",
+]
+
+[lint.pydocstyle]
+convention = "pep257"
+
+[lint.flake8-annotations]
+allow-star-arg-any = true
