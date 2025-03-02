@@ -33,8 +33,3 @@ PROVIDERS = "providers"
 DATA_WRITER = "data_writer"
 """default section holding BufferedDataWriter settings"""
 
-DBT_PACKAGE_RUNNER = "dbt_package_runner"
-"""dbt package runner configuration (DBTRunnerConfiguration)"""
-
-DBT_CLOUD = "dbt_cloud"
-"""dbt cloud helpers configuration (DBTCloudConfiguration)"""

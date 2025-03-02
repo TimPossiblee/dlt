@@ -6,7 +6,7 @@ from dlt.common.schema.typing import (
     TTableReferenceParam,
 )
 
-TDatasetType = Literal["auto", "default", "ibis"]
+TDatasetType = Literal["auto", "default"]
 
 
 class PreparedTableSchema(_TTableSchemaBase, total=False):

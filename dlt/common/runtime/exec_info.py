@@ -46,8 +46,6 @@ def exec_info_names() -> List[TExecInfoNames]:
         names.append("notebook")
     if is_colab():
         names.append("colab")
-    if airflow_info():
-        names.append("airflow")
     if is_aws_lambda():
         names.append("aws_lambda")
     if is_gcp_cloud_function():
@@ -83,37 +81,6 @@ def is_colab() -> bool:
         return False
 
 
-def airflow_info() -> StrAny:
-    try:
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            from airflow.operators.python import get_current_context
-
-            get_current_context()
-            return {"AIRFLOW_TASK": True}
-    except Exception:
-        return None
-
-
-def is_airflow_installed() -> bool:
-    try:
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            import airflow
-        return True
-    except Exception:
-        return False
-
-
-def is_running_in_airflow_task() -> bool:
-    try:
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            from airflow.operators.python import get_current_context
-
-            context = get_current_context()
-            return context is not None and "ti" in context
-    except Exception:
-        return False
-
-
 def dlt_version_info(pipeline_name: str) -> StrStr:
     """Gets dlt version info including commit and image version available in docker"""
     version_info = {"dlt_version": __version__, "pipeline_name": pipeline_name}
@@ -126,15 +93,6 @@ def dlt_version_info(pipeline_name: str) -> StrStr:
 def kube_pod_info() -> StrStr:
     """Extracts information on pod name, namespace and node name if running on Kubernetes"""
     return filter_env_vars(["KUBE_NODE_NAME", "KUBE_POD_NAME", "KUBE_POD_NAMESPACE"])
-
-
-def github_info() -> StrStr:
-    """Extracts github info"""
-    info = filter_env_vars(["GITHUB_USER", "GITHUB_REPOSITORY", "GITHUB_REPOSITORY_OWNER"])
-    # set GITHUB_REPOSITORY_OWNER as github user if not present. GITHUB_REPOSITORY_OWNER is available in github action context
-    if "github_user" not in info and "github_repository_owner" in info:
-        info["github_user"] = info["github_repository_owner"]  # type: ignore
-    return info
 
 
 def in_continuous_integration() -> bool:
@@ -175,16 +133,6 @@ def is_gcp_cloud_function() -> bool:
     return os.environ.get("FUNCTION_NAME") is not None
 
 
-def get_plus_version() -> TVersion:
-    "Gets dlt+ library version"
-    try:
-        from dlt_plus.version import __version__, PKG_NAME
-
-        return TVersion(name=PKG_NAME, version=__version__)
-    except Exception:
-        return None
-
-
 def run_context_name() -> str:
     try:
         from dlt.common.configuration.container import Container
@@ -211,7 +159,5 @@ def get_execution_context() -> TExecutionContext:
         library=TVersion(name=DLT_PKG_NAME, version=__version__),
         run_context=run_context_name(),
     )
-    if plus_version := get_plus_version():
-        context["plus"] = plus_version
 
     return context

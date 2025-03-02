@@ -36,7 +36,6 @@ from dlt.pipeline import (
     run,
     attach,
     Pipeline,
-    dbt,
     current as _current,
     mark as _mark,
 )
@@ -71,7 +70,6 @@ __all__ = [
     "run",
     "attach",
     "Pipeline",
-    "dbt",
     "progress",
     "current",
     "mark",

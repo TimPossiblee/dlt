@@ -4,7 +4,6 @@ import pluggy
 import importlib.metadata
 
 from dlt.common.configuration.specs.base_configuration import ContainerInjectableContext
-from dlt.common.known_env import DLT_DISABLE_PLUGINS
 
 hookspec = pluggy.HookspecMarker("dlt")
 hookimpl = pluggy.HookimplMarker("dlt")
@@ -20,24 +19,6 @@ class PluginContext(ContainerInjectableContext):
         super().__init__()
         self.manager = pluggy.PluginManager("dlt")
         self.plugin_modules = []
-        if os.environ.get(DLT_DISABLE_PLUGINS, "False").lower() == "true":
-            return
-
-        # TODO: we need to solve circular deps somehow
-
-        # run_context
-        from dlt.common.runtime import run_context
-
-        self.manager.add_hookspecs(run_context)
-        self.manager.register(run_context)
-
-        # cli
-        from dlt.cli import plugins
-
-        self.manager.add_hookspecs(plugins)
-        self.manager.register(plugins)
-
-        self.plugin_modules = load_setuptools_entrypoints(self.manager)
 
 
 def manager() -> pluggy.PluginManager:

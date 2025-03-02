@@ -14,11 +14,6 @@ from dlt.common.warnings import Dlt100DeprecationWarning
 @configspec
 class RuntimeConfiguration(BaseConfiguration):
     pipeline_name: Optional[str] = None
-    sentry_dsn: Optional[str] = None  # keep None to disable Sentry
-    slack_incoming_hook: Optional[TSecretStrValue] = None
-    dlthub_telemetry: bool = True  # enable or disable dlthub telemetry
-    dlthub_telemetry_endpoint: Optional[str] = "https://telemetry.scalevector.ai"
-    dlthub_telemetry_segment_write_key: Optional[str] = None
     log_format: str = (
         "{asctime}|[{levelname}]|{process}|{thread}|{name}|{filename}|{funcName}:{lineno}|{message}"
     )
@@ -51,16 +46,6 @@ class RuntimeConfiguration(BaseConfiguration):
         # always use abs path for data_dir
         # if self.data_dir:
         #     self.data_dir = abspath(self.data_dir)
-        if self.slack_incoming_hook:
-            # it may be obfuscated base64 value
-            # TODO: that needs to be removed ASAP
-            try:
-                self.slack_incoming_hook = TSecretStrValue(
-                    reveal_pseudo_secret(self.slack_incoming_hook, b"dlt-runtime-2022")
-                )
-            except binascii.Error:
-                # just keep the original value
-                pass
 
     def has_configuration_file(self, name: str) -> bool:
         return isfile(self.get_configuration_file_path(name))

@@ -4,9 +4,6 @@ from dlt.common.configuration.specs.pluggable_run_context import (
     SupportsRunContext,
 )
 
-# telemetry should be initialized only once
-_INITIALIZED = False
-
 
 def initialize_runtime(
     run_context: SupportsRunContext, runtime_config: RuntimeConfiguration
@@ -40,18 +37,6 @@ def restore_run_context(
 
     Container()[PluggableRunContext] = PluggableRunContext(run_context, runtime_config)
     apply_runtime_config(runtime_config)
-    init_telemetry(runtime_config)
-
-
-def init_telemetry(runtime_config: RuntimeConfiguration) -> None:
-    """Starts telemetry only once"""
-    from dlt.common.runtime.telemetry import start_telemetry
-
-    global _INITIALIZED
-    # initialize only once
-    if not _INITIALIZED:
-        start_telemetry(runtime_config)
-        _INITIALIZED = True
 
 
 def apply_runtime_config(runtime_config: RuntimeConfiguration) -> None:

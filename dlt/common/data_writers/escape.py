@@ -105,33 +105,6 @@ MS_SQL_ESCAPE_DICT = {
 MS_SQL_ESCAPE_RE = _make_sql_escape_re(MS_SQL_ESCAPE_DICT)
 
 
-def escape_mssql_literal(v: Any) -> Any:
-    if isinstance(v, str):
-        return _escape_extended(
-            v, prefix="N'", escape_dict=MS_SQL_ESCAPE_DICT, escape_re=MS_SQL_ESCAPE_RE
-        )
-    if isinstance(v, (datetime, date, time)):
-        return f"'{v.isoformat()}'"
-    if isinstance(v, (list, dict)):
-        return _escape_extended(
-            json.dumps(v), prefix="N'", escape_dict=MS_SQL_ESCAPE_DICT, escape_re=MS_SQL_ESCAPE_RE
-        )
-    if isinstance(v, bytes):
-        from dlt.destinations.impl.mssql.mssql import VARBINARY_MAX_N
-
-        if len(v) <= VARBINARY_MAX_N:
-            n = str(len(v))
-        else:
-            n = "MAX"
-        return f"CONVERT(VARBINARY({n}), '{v.hex()}', 2)"
-
-    if isinstance(v, bool):
-        return str(int(v))
-    if v is None:
-        return "NULL"
-    return str(v)
-
-
 def escape_redshift_identifier(v: str) -> str:
     return '"' + v.replace('"', '""').replace("\\", "\\\\") + '"'
 

@@ -425,49 +425,6 @@ class Incremental(ItemTransform[TDataItem], BaseConfiguration, Generic[TCursorVa
             )
             return
 
-        def _ensure_airflow_end_date(
-            start_date: pendulum.DateTime, end_date: pendulum.DateTime
-        ) -> Optional[pendulum.DateTime]:
-            """if end_date is in the future or same as start date (manual run), set it to None so dlt state is used for incremental loading"""
-            now = pendulum.now()
-            if end_date is None or end_date > now or start_date == end_date:
-                return now
-            return end_date
-
-        try:
-            # we can move it to separate module when we have more of those
-            from airflow.operators.python import get_current_context  # noqa
-
-            context = get_current_context()
-            start_date = context["data_interval_start"]
-            end_date = _ensure_airflow_end_date(start_date, context["data_interval_end"])
-            self.initial_value = coerce_from_date_types(data_type, start_date)
-            if end_date is not None:
-                self.end_value = coerce_from_date_types(data_type, end_date)
-            else:
-                self.end_value = None
-            logger.info(
-                f"Found Airflow scheduler: initial value: {self.initial_value} from"
-                f" data_interval_start {context['data_interval_start']}, end value:"
-                f" {self.end_value} from data_interval_end {context['data_interval_end']}"
-            )
-            return
-        except TypeError as te:
-            logger.warning(
-                f"Could not coerce Airflow execution dates into the last value type {param_type}."
-                f" ({te})"
-            )
-        except Exception:
-            pass
-
-        if start_value := os.environ.get("DLT_START_VALUE"):
-            self.initial_value = coerce_value(data_type, "text", start_value)
-            if end_value := os.environ.get("DLT_END_VALUE"):
-                self.end_value = coerce_value(data_type, "text", end_value)
-            else:
-                self.end_value = None
-            return
-
     def bind(self, pipe: SupportsPipe) -> "Incremental[TCursorValue]":
         """Called by pipe just before evaluation"""
         # bind the resource/pipe name

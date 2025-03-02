@@ -21,15 +21,12 @@ if TYPE_CHECKING:
     try:
         from dlt.common.libs.pandas import DataFrame
         from dlt.common.libs.pyarrow import Table as ArrowTable
-        from dlt.helpers.ibis import BaseBackend as IbisBackend
     except MissingDependencyException:
         DataFrame = Any
         ArrowTable = Any
-        IbisBackend = Any
 else:
     DataFrame = Any
     ArrowTable = Any
-    IbisBackend = Any
 
 
 class SupportsReadableRelation(Protocol):
@@ -145,8 +142,6 @@ class SupportsReadableDataset(Protocol):
     def __getitem__(self, table: str) -> SupportsReadableRelation: ...
 
     def __getattr__(self, table: str) -> SupportsReadableRelation: ...
-
-    def ibis(self) -> IbisBackend: ...
 
     def row_counts(
         self, *, data_tables: bool = True, dlt_tables: bool = False, table_names: List[str] = None

@@ -9,7 +9,6 @@ TExecInfoNames = Literal[
     "docker",
     "codespaces",
     "github_actions",
-    "airflow",
     "notebook",
     "colab",
     "aws_lambda",
@@ -35,4 +34,3 @@ class TExecutionContext(TypedDict, total=False):
     library: TVersion
     os: TVersion
     run_context: str
-    plus: TVersion

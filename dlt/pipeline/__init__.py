@@ -16,7 +16,7 @@ from dlt.common.configuration.container import Container
 from dlt.common.configuration.inject import get_orig_args, last_config
 from dlt.common.destination import TLoaderFileFormat, Destination, TDestinationReferenceArg
 from dlt.common.pipeline import LoadInfo, PipelineContext, get_dlt_pipelines_dir, TRefreshMode
-from dlt.common.runtime import apply_runtime_config, init_telemetry
+from dlt.common.runtime import apply_runtime_config
 
 from dlt.pipeline.configuration import PipelineConfiguration, ensure_correct_pipeline_kwargs
 from dlt.pipeline.pipeline import Pipeline
@@ -139,7 +139,6 @@ def pipeline(
     # modifies run_context and must go first
     runtime_config = injection_kwargs["runtime"]
     apply_runtime_config(runtime_config)
-    init_telemetry(runtime_config)
 
     # if working_dir not provided use temp folder
     if not pipelines_dir:
@@ -198,7 +197,6 @@ def attach(
 
     runtime_config = injection_kwargs["runtime"]
     apply_runtime_config(runtime_config)
-    init_telemetry(runtime_config)
 
     # if working_dir not provided use temp folder
     if not pipelines_dir:
@@ -322,11 +320,6 @@ def run(
         refresh=refresh,
     )
 
-
-# plug default tracking module
-from dlt.pipeline import trace, track, platform
-
-trace.TRACKING_MODULES = [track, platform]
 
 # setup default pipeline in the container
 PipelineContext.cls__init__(pipeline)

@@ -14,14 +14,6 @@ from dlt.common.schema import Schema
 from dlt.destinations.dataset.relation import ReadableDBAPIRelation
 from dlt.destinations.dataset.utils import get_destination_clients
 
-if TYPE_CHECKING:
-    try:
-        from dlt.helpers.ibis import BaseBackend as IbisBackend
-    except MissingDependencyException:
-        IbisBackend = Any
-else:
-    IbisBackend = Any
-
 
 class ReadableDBAPIDataset(SupportsReadableDataset):
     """Access to dataframes and arrowtables in the destination dataset via dbapi"""
@@ -39,15 +31,6 @@ class ReadableDBAPIDataset(SupportsReadableDataset):
         self._sql_client: SqlClientBase[Any] = None
         self._schema: Schema = None
         self._dataset_type = dataset_type
-
-    def ibis(self) -> IbisBackend:
-        """return a connected ibis backend"""
-        from dlt.helpers.ibis import create_ibis_backend
-
-        return create_ibis_backend(
-            self._destination,
-            self._destination_client(self.schema),
-        )
 
     @property
     def schema(self) -> Schema:
@@ -122,24 +105,6 @@ class ReadableDBAPIDataset(SupportsReadableDataset):
         return ReadableDBAPIRelation(readable_dataset=self, provided_query=query)  # type: ignore[abstract]
 
     def table(self, table_name: str) -> SupportsReadableRelation:
-        # we can create an ibis powered relation if ibis is available
-        if table_name in self.schema.tables and self._dataset_type in ("auto", "ibis"):
-            try:
-                from dlt.helpers.ibis import create_unbound_ibis_table
-                from dlt.destinations.dataset.ibis_relation import ReadableIbisRelation
-
-                unbound_table = create_unbound_ibis_table(self.sql_client, self.schema, table_name)
-                return ReadableIbisRelation(  # type: ignore[abstract]
-                    readable_dataset=self,
-                    ibis_object=unbound_table,
-                    columns_schema=self.schema.tables[table_name]["columns"],
-                )
-            except MissingDependencyException:
-                # if ibis is explicitly requested, reraise
-                if self._dataset_type == "ibis":
-                    raise
-
-        # fallback to the standard dbapi relation
         return ReadableDBAPIRelation(
             readable_dataset=self,
             table_name=table_name,
