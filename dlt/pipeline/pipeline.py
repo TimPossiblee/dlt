@@ -43,7 +43,7 @@ from dlt.common.schema.typing import (
     TAnySchemaColumns,
     TSchemaContract,
 )
-from dlt.common.schema.utils import normalize_schema_name
+from dlt.common.schema.utils import normalize_schema_name, strip_down_schema
 from dlt.common.storages.exceptions import LoadPackageNotFound
 from dlt.common.typing import ConfigValue, TFun, TSecretStrValue, TColumnNames
 from dlt.common.runners import pool_runner as runner
@@ -1569,7 +1569,8 @@ class Pipeline(SupportsPipeline):
                         with contextlib.suppress(FileNotFoundError):
                             self._schema_storage.load_schema(schema.name)
                     else:
-                        schema = Schema.from_dict(json.loads(schema_info.schema))
+                        dest_schema = strip_down_schema(json.loads(schema_info.schema))
+                        schema = Schema.from_dict(dest_schema)
                         logger.info(
                             f"The schema {schema.name} version {schema.version} hash"
                             f" {schema.stored_version_hash} was restored from the destination"
