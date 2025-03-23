@@ -49,6 +49,7 @@ TUniversalColumnProp = Literal[
     "precision",
     "scale",
     "timezone",
+    "unique",
 ]
 
 UNIVERSAL_COLUMN_PROPS: Set[TUniversalColumnProp] = set(get_args(TUniversalColumnProp))

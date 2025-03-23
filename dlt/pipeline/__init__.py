@@ -34,8 +34,6 @@ def pipeline(
     destination: TDestinationReferenceArg = None,
     staging: TDestinationReferenceArg = None,
     dataset_name: str = None,
-    import_schema_path: str = None,
-    export_schema_path: str = None,
     full_refresh: Optional[bool] = None,
     dev_mode: bool = False,
     refresh: Optional[TRefreshMode] = None,
@@ -70,10 +68,6 @@ def pipeline(
 
         dataset_name (str, optional): A name of the dataset to which the data will be loaded. A dataset is a logical group of tables ie. `schema` in relational databases or folder grouping many files.
             May also be provided later to the `run` or `load` methods of the `Pipeline`. If not provided at all then defaults to the `pipeline_name`
-
-        import_schema_path (str, optional): A path from which the schema `yaml` file will be imported on each pipeline run. Defaults to None which disables importing.
-
-        export_schema_path (str, optional): A path where the schema `yaml` file will be exported after every schema change. Defaults to None which disables exporting.
 
         dev_mode (bool, optional): When set to True, each instance of the pipeline with the `pipeline_name` starts from scratch when run and loads the data to a separate dataset.
             The datasets are identified by `dataset_name_` + datetime suffix. Use this setting whenever you experiment with your data to be sure you start fresh on each run. Defaults to False.
@@ -111,8 +105,6 @@ def pipeline(
     destination: TDestinationReferenceArg = None,
     staging: TDestinationReferenceArg = None,
     dataset_name: str = None,
-    import_schema_path: str = None,
-    export_schema_path: str = None,
     full_refresh: Optional[bool] = None,
     dev_mode: bool = False,
     refresh: Optional[TRefreshMode] = None,
@@ -162,8 +154,6 @@ def pipeline(
         destination,
         staging,
         dataset_name,
-        import_schema_path,
-        export_schema_path,
         full_refresh if full_refresh is not None else dev_mode,
         progress,
         False,

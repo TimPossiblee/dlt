@@ -1073,19 +1073,27 @@ def to_pretty_yaml(stored_schema: TStoredSchema) -> str:
 
 def strip_down_schema(unsecure_schema: TStoredSchema) -> TStoredSchema:
     """Strip schema down to the most essential information."""
-    schema_props = {"version", "engine_version", "name", "tables", "version_hash", "normalizers"}
-    for schema_prop in unsecure_schema:
+    schema_props = {"version", "engine_version", "name", "tables", "version_hash"}
+    for schema_prop in list(unsecure_schema.keys()):
         if schema_prop not in schema_props:
             unsecure_schema.pop(schema_prop, None)
 
+    unsecure_schema["previous_hashes"] = []
+    unsecure_schema["normalizers"] = {
+        "names": "snake_case",
+        "json": {
+            "module": "dlt.common.normalizers.json.relational"
+        }
+    }
+
     table_props = {"name", "columns", "table_format"}
     for table_name in unsecure_schema.get("tables", {}):
-        for tbl_prop in unsecure_schema["tables"][table_name]:
+        for tbl_prop in list(unsecure_schema["tables"][table_name].keys()):
             if tbl_prop not in table_props:
                 unsecure_schema["tables"][table_name].pop(tbl_prop, None)
 
         for col_name in unsecure_schema["tables"][table_name]["columns"]:
-            for col_prop in unsecure_schema["tables"][table_name]["columns"][col_name]:
+            for col_prop in list(unsecure_schema["tables"][table_name]["columns"][col_name].keys()):
                 if col_prop not in UNIVERSAL_COLUMN_PROPS:
                     unsecure_schema["tables"][table_name]["columns"][col_name].pop(col_prop, None)
 

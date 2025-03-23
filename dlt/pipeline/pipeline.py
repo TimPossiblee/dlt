@@ -779,21 +779,26 @@ class Pipeline(SupportsPipeline):
 
                 # if remote state is newer or same
                 if remote_state and remote_state["_state_version"] >= state["_state_version"]:
-                    state_changed = remote_state["_version_hash"] != state.get("_version_hash")
-                    if state_changed:
-                        # see if state didn't change the pipeline name
-                        if state["pipeline_name"] != remote_state["pipeline_name"]:
-                            raise CannotRestorePipelineException(
-                                state["pipeline_name"],
-                                self.pipelines_dir,
-                                "destination state contains state for pipeline with name"
-                                f" {remote_state['pipeline_name']}",
-                            )
-                        # if state was modified force get all schemas
-                        restored_schemas = self._get_schemas_from_destination(
-                            remote_state["schema_names"], always_download=True
-                        )
-                        # TODO: we should probably wipe out pipeline here
+                    # TODO change to always sync state and schema from destination, no if else
+                    restored_schemas = self._get_schemas_from_destination(
+                        remote_state["schema_names"], always_download=True
+                    )
+
+                    # state_changed = remote_state["_version_hash"] != state.get("_version_hash")
+                    # if state_changed:
+                    #     # see if state didn't change the pipeline name
+                    #     if state["pipeline_name"] != remote_state["pipeline_name"]:
+                    #         raise CannotRestorePipelineException(
+                    #             state["pipeline_name"],
+                    #             self.pipelines_dir,
+                    #             "destination state contains state for pipeline with name"
+                    #             f" {remote_state['pipeline_name']}",
+                    #         )
+                    #     # if state was modified force get all schemas
+                    #     restored_schemas = self._get_schemas_from_destination(
+                    #         remote_state["schema_names"], always_download=True
+                    #     )
+                    #     # TODO: we should probably wipe out pipeline here
                 # if we didn't full refresh schemas, get only missing schemas
                 if restored_schemas is None:
                     restored_schemas = self._get_schemas_from_destination(

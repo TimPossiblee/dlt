@@ -21,9 +21,6 @@ class PipelineConfiguration(BaseConfiguration):
     staging_type: Optional[TDestinationReferenceArg] = None
     staging_name: Optional[str] = None
 
-    import_schema_path: Optional[str] = None
-    export_schema_path: Optional[str] = None
-
     dataset_name: Optional[str] = None
     dataset_name_layout: Optional[str] = None
     """Layout for dataset_name, where %s is replaced with dataset_name. For example: 'prefix_%s'"""
