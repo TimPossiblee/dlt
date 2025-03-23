@@ -190,9 +190,7 @@ def with_schemas_sync(f: TFun) -> TFun:
             raise
         else:
             # save modified live schemas
-            for name, schema in self._schema_storage.live_schemas.items():
-                # also save import schemas only here
-                self._schema_storage.save_import_schema_if_not_exists(schema)
+            for name, _ in self._schema_storage.live_schemas.items():
                 # only now save the schema, already linked to itself if saved as import schema
                 self._schema_storage.commit_live_schema(name)
             # refresh list of schemas if any new schemas are added
@@ -324,8 +322,6 @@ class Pipeline(SupportsPipeline):
         destination: AnyDestination,
         staging: AnyDestination,
         dataset_name: str,
-        import_schema_path: str,
-        export_schema_path: str,
         dev_mode: bool,
         progress: _Collector,
         must_attach_to_local_pipeline: bool,
@@ -362,7 +358,7 @@ class Pipeline(SupportsPipeline):
         self._init_working_dir(pipeline_name, pipelines_dir)
 
         with self.managed_state() as state:
-            self._configure(import_schema_path, export_schema_path, must_attach_to_local_pipeline)
+            self._configure(must_attach_to_local_pipeline)
             # changing the destination could be dangerous if pipeline has pending load packages
             self._set_destinations(destination=destination, staging=staging, initializing=True)
             # set the pipeline properties from state, destination and staging will not be set
@@ -390,8 +386,6 @@ class Pipeline(SupportsPipeline):
             self._destination,
             self._staging,
             self.dataset_name,
-            self._schema_storage.config.import_schema_path,
-            self._schema_storage.config.export_schema_path,
             self.dev_mode,
             self.collector,
             False,
@@ -406,8 +400,6 @@ class Pipeline(SupportsPipeline):
                 deepcopy(self._destination),
                 deepcopy(self._staging),
                 self.dataset_name,
-                self._schema_storage.config.import_schema_path,
-                self._schema_storage.config.export_schema_path,
                 self.dev_mode,
                 deepcopy(self.collector),
                 False,
@@ -786,11 +778,8 @@ class Pipeline(SupportsPipeline):
                 remote_state = self._restore_state_from_destination()
 
                 # if remote state is newer or same
-                # print(f'REMOTE STATE: {(remote_state or {}).get("_state_version")} >= {state["_state_version"]}')
-                # TODO: check if remote_state["_state_version"] is not in 10 recent version. then we know remote is newer.
                 if remote_state and remote_state["_state_version"] >= state["_state_version"]:
                     state_changed = remote_state["_version_hash"] != state.get("_version_hash")
-                    # print(f"MERGED STATE: {bool(merged_state)}")
                     if state_changed:
                         # see if state didn't change the pipeline name
                         if state["pipeline_name"] != remote_state["pipeline_name"]:
@@ -841,11 +830,7 @@ class Pipeline(SupportsPipeline):
                         # reset pipeline
                         self._wipe_working_folder()
                         state = self._get_state()
-                        self._configure(
-                            self._schema_storage_config.import_schema_path,
-                            self._schema_storage_config.export_schema_path,
-                            False,
-                        )
+                        self._configure(must_attach_to_local_pipeline=False)
 
             # write the state back
             self._props_to_state(state)
@@ -1143,13 +1128,11 @@ class Pipeline(SupportsPipeline):
             self._wipe_working_folder()
 
     def _configure(
-        self, import_schema_path: str, export_schema_path: str, must_attach_to_local_pipeline: bool
+        self, must_attach_to_local_pipeline: bool
     ) -> None:
         # create schema storage and folders
         self._schema_storage_config = SchemaStorageConfiguration(
             schema_volume_path=os.path.join(self.working_dir, "schemas"),
-            import_schema_path=import_schema_path,
-            export_schema_path=export_schema_path,
         )
         # create default configs
         self._normalize_storage_config()
