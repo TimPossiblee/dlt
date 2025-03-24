@@ -112,7 +112,7 @@ class SqlClientBase(ABC, Generic[TNativeConn]):
 SELECT 1
     FROM INFORMATION_SCHEMA.SCHEMATA
     WHERE """
-        catalog_name, schema_name, _ = self._get_information_schema_components()
+        catalog_name, schema_name, _ = self.get_information_schema_components()
         db_params: List[str] = []
         if catalog_name is not None:
             query += " catalog_name = %s AND "
@@ -284,7 +284,7 @@ SELECT 1
         mro = type.mro(type(ex))
         return any(t.__name__ in ("DatabaseError", "DataError") for t in mro)
 
-    def _get_information_schema_components(self, *tables: str) -> Tuple[str, str, List[str]]:
+    def get_information_schema_components(self, *tables: str) -> Tuple[str | None, str, List[str]]:
         """Gets catalog name, schema name and name of the tables in format that can be directly
         used to query INFORMATION_SCHEMA. catalog name is optional: in that case None is
         returned in the first element of the tuple.

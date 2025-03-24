@@ -1,3 +1,5 @@
+import pendulum
+
 import dlt
 
 
@@ -6,7 +8,7 @@ import dlt
     primary_key="event_id",
 )
 def events():
-    yield [{"event_id": 1, "event_tstamp": "2024-07-30T10:00:00.123+00:00"}]
+    yield [{"event_id": 1, "event_tstamp": pendulum.now()}]
 
 
 p = dlt.pipeline(
@@ -14,4 +16,4 @@ p = dlt.pipeline(
     destination=dlt.destinations.duckdb("files/data.db"),
     dataset_name="chess_data",
 )
-p.run(events(), schema_contract={"tables": "evolve", "columns": "evolve", "data_type": "evolve"})
+p.run(events(), schema_contract={"tables": "evolve", "columns": "evolve", "data_type": "freeze"})

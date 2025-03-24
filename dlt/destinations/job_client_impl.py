@@ -26,18 +26,18 @@ from dlt.common.schema.typing import (
     C_DLT_LOAD_ID,
     COLUMN_HINTS,
     TColumnType,
-    TColumnSchemaBase,
+    TColumnSchemaBase, SCHEMA_ENGINE_VERSION,
 )
 from dlt.common.schema.utils import (
     get_inherited_table_hint,
     has_default_column_prop_value,
     loads_table,
     normalize_table_identifiers,
-    version_table,
+    version_table, bump_version_if_modified,
 )
 from dlt.common.storages import FileStorage
 from dlt.common.storages.load_package import LoadJobInfo, ParsedLoadJobFileName
-from dlt.common.schema import TColumnSchema, Schema, TTableSchemaColumns, TSchemaTables
+from dlt.common.schema import TColumnSchema, Schema, TTableSchemaColumns, TSchemaTables, TStoredSchema
 from dlt.common.schema import TColumnHint
 from dlt.common.destination.client import (
     PreparedTableSchema,
@@ -113,18 +113,6 @@ class SqlLoadJob(RunnableLoadJob):
         return os.path.splitext(file_path)[1][1:] == "sql"
 
 
-class CopyRemoteFileLoadJob(RunnableLoadJob, HasFollowupJobs):
-    def __init__(
-        self,
-        file_path: str,
-        staging_credentials: Optional[CredentialsConfiguration] = None,
-    ) -> None:
-        super().__init__(file_path)
-        self._job_client: "SqlJobClientBase" = None
-        self._staging_credentials = staging_credentials
-        self._bucket_path = ReferenceFollowupJobRequest.resolve_reference(file_path)
-
-
 class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
     INFO_TABLES_QUERY_THRESHOLD: ClassVar[int] = 1000
     """Fallback to querying all tables in the information schema if checking more than threshold"""
@@ -139,7 +127,7 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
         version_table_ = normalize_table_identifiers(version_table(), schema.naming)
         self.version_table_schema_columns = ", ".join(
             sql_client.escape_column_name(col) for col in version_table_["columns"]
-        )
+        ) # TODO remove for schemaless
         loads_table_ = normalize_table_identifiers(loads_table(), schema.naming)
         self.loads_table_schema_columns = ", ".join(
             sql_client.escape_column_name(col) for col in loads_table_["columns"]
@@ -303,7 +291,7 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
         self.sql_client.close_connection()
 
     def get_storage_tables(
-        self, table_names: Iterable[str]
+            self, table_names: Iterable[str]
     ) -> Iterable[Tuple[str, TTableSchemaColumns]]:
         """Uses INFORMATION_SCHEMA to retrieve table and column information for tables in `table_names` iterator.
         Table names should be normalized according to naming convention and will be further converted to desired casing
@@ -314,26 +302,24 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
         possible to convert identifiers into INFORMATION SCHEMA back into case sensitive dlt schema.
         """
         table_names = list(table_names)
-        if len(table_names) == 0:
-            # empty generator
-            return
+
         # get schema search components
         catalog_name, schema_name, folded_table_names = (
-            self.sql_client._get_information_schema_components(*table_names)
+            self.sql_client.get_information_schema_components(*table_names)
         )
         # create table name conversion lookup table
-        name_lookup = {
-            folded_name: name for folded_name, name in zip(folded_table_names, table_names)
-        }
+        name_lookup = dict(zip(folded_table_names, table_names, strict=True))
         # this should never happen: we verify schema for name collisions before loading
-        assert len(name_lookup) == len(table_names), (
-            f"One or more of tables in {table_names} after applying"
-            f" {self.capabilities.casefold_identifier} produced a name collision."
-        )
+        if len(name_lookup) != len(table_names):
+            msg = (
+                f"One or more of tables in {table_names} after applying"
+                f" {self.capabilities.casefold_identifier} produced a name collision."
+            )
+            raise ValueError(msg)
         # if we have more tables to lookup than a threshold, we prefer to filter them in code
         if (
-            len(name_lookup) > self.INFO_TABLES_QUERY_THRESHOLD
-            or len(",".join(folded_table_names)) > self.capabilities.max_query_length / 2
+                len(name_lookup) > self.INFO_TABLES_QUERY_THRESHOLD
+                or len(",".join(folded_table_names)) > self.capabilities.max_query_length / 2
         ):
             logger.info(
                 "Fallback to query all columns from INFORMATION_SCHEMA due to limited query length"
@@ -349,22 +335,30 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
         storage_columns: TTableSchemaColumns = None
         for c in rows:
             # if we are selecting all tables this is expected
-            if not folded_table_names and c[0] not in name_lookup:
-                continue
-            # make sure that new table is known
-            assert (
-                c[0] in name_lookup
-            ), f"Table name {c[0]} not in expected tables {name_lookup.keys()}"
-            table_name = name_lookup[c[0]]
+            if table_names:
+                if not folded_table_names and c[0] not in name_lookup:
+                    continue
+                # make sure that new table is known
+                if c[0] not in name_lookup:
+                    msg = f"Table name {c[0]} not in expected tables {name_lookup.keys()}"
+                    raise ValueError(msg)
+
+                table_name = name_lookup[c[0]]
+            else:
+                table_name = c[0]
+
             if prev_table != table_name:
                 # yield what we have
                 if storage_columns:
-                    yield (prev_table, storage_columns)
+                    yield prev_table, storage_columns
                 # we have new table
                 storage_columns = {}
                 prev_table = table_name
-                # remove from table_names
-                table_names.remove(prev_table)
+
+                if table_names:
+                    # remove from table_names
+                    table_names.remove(prev_table)
+
             # add columns
             col_name = c[1]
             numeric_precision = (
@@ -377,13 +371,13 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
                 "nullable": info_schema_null_to_bool(c[3]),
                 **self._from_db_type(c[2], numeric_precision, numeric_scale),
             }
-            storage_columns[col_name] = schema_c  # type: ignore
+            storage_columns[col_name] = schema_c
         # yield last table, it must have at least one column or we had no rows
         if storage_columns:
             yield (prev_table, storage_columns)
         # if no columns we assume that table does not exist
         for table_name in table_names:
-            yield (table_name, {})
+            yield table_name, {}
 
     def get_storage_table(self, table_name: str) -> Tuple[bool, TTableSchemaColumns]:
         """Uses get_storage_tables to get single `table_name` schema.
@@ -399,21 +393,40 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
     ) -> TColumnType:
         pass
 
-    def get_stored_schema(self, schema_name: str = None) -> StorageSchemaInfo:
-        name = self.sql_client.make_qualified_table_name(self.schema.version_table_name)
-        c_schema_name, c_inserted_at = self._norm_and_escape_columns("schema_name", "inserted_at")
+    def get_stored_schema(self, schema_name: str | None = None) -> StorageSchemaInfo:
         if not schema_name:
-            query = (
-                f"SELECT {self.version_table_schema_columns} FROM {name}"
-                f" ORDER BY {c_inserted_at} DESC;"
-            )
-            return self._row_to_schema_info(query)
-        else:
-            query = (
-                f"SELECT {self.version_table_schema_columns} FROM {name} WHERE {c_schema_name} = %s"
-                f" ORDER BY {c_inserted_at} DESC;"
-            )
-            return self._row_to_schema_info(query, schema_name)
+            msg = "Regression do not allow empty schema_name due to information_schema inspection."
+            raise NotImplementedError(msg)
+
+        stored_schema: TStoredSchema = {
+            "version": None,
+            "engine_version": SCHEMA_ENGINE_VERSION,
+            "previous_hashes": [],
+            "normalizers": {
+                "names": "snake_case",
+                "json": {
+                    "module": "dlt.common.normalizers.json.relational"
+                }
+            },
+            "name": schema_name,
+            "tables": {}
+        }
+        for table_name, storage_columns in self.get_storage_tables([]):
+            stored_schema["tables"][table_name] = {
+                "name": table_name,
+                "columns": storage_columns
+            }
+
+        bump_version_if_modified(stored_schema)
+
+        return StorageSchemaInfo(
+            stored_schema["version_hash"],
+            schema_name,
+            stored_schema["version"],
+            str(stored_schema["engine_version"]),
+            pendulum.now(),
+            json.dumps(stored_schema)
+        )
 
     def get_stored_state(self, pipeline_name: str) -> StateInfo:
         state_table = self.sql_client.make_qualified_table_name(self.schema.state_table_name)
