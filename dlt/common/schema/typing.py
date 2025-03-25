@@ -42,6 +42,18 @@ C_DLT_ID = "_dlt_id"
 C_DLT_LOAD_ID = "_dlt_load_id"
 """load id to identify records loaded in a single load package"""
 
+TUniversalColumnProp = Literal[
+    "name",
+    "data_type",
+    "nullable",
+    "precision",
+    "scale",
+    "timezone",
+    "unique",
+]
+
+UNIVERSAL_COLUMN_PROPS: Set[TUniversalColumnProp] = set(get_args(TUniversalColumnProp))
+
 TColumnProp = Literal[
     "name",
     # data type

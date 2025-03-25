@@ -43,7 +43,7 @@ from dlt.common.schema.typing import (
     TAnySchemaColumns,
     TSchemaContract,
 )
-from dlt.common.schema.utils import normalize_schema_name
+from dlt.common.schema.utils import normalize_schema_name, strip_down_schema
 from dlt.common.storages.exceptions import LoadPackageNotFound
 from dlt.common.typing import ConfigValue, TFun, TSecretStrValue, TColumnNames
 from dlt.common.runners import pool_runner as runner
@@ -190,9 +190,7 @@ def with_schemas_sync(f: TFun) -> TFun:
             raise
         else:
             # save modified live schemas
-            for name, schema in self._schema_storage.live_schemas.items():
-                # also save import schemas only here
-                self._schema_storage.save_import_schema_if_not_exists(schema)
+            for name, _ in self._schema_storage.live_schemas.items():
                 # only now save the schema, already linked to itself if saved as import schema
                 self._schema_storage.commit_live_schema(name)
             # refresh list of schemas if any new schemas are added
@@ -324,8 +322,6 @@ class Pipeline(SupportsPipeline):
         destination: AnyDestination,
         staging: AnyDestination,
         dataset_name: str,
-        import_schema_path: str,
-        export_schema_path: str,
         dev_mode: bool,
         progress: _Collector,
         must_attach_to_local_pipeline: bool,
@@ -362,7 +358,7 @@ class Pipeline(SupportsPipeline):
         self._init_working_dir(pipeline_name, pipelines_dir)
 
         with self.managed_state() as state:
-            self._configure(import_schema_path, export_schema_path, must_attach_to_local_pipeline)
+            self._configure(must_attach_to_local_pipeline)
             # changing the destination could be dangerous if pipeline has pending load packages
             self._set_destinations(destination=destination, staging=staging, initializing=True)
             # set the pipeline properties from state, destination and staging will not be set
@@ -390,8 +386,6 @@ class Pipeline(SupportsPipeline):
             self._destination,
             self._staging,
             self.dataset_name,
-            self._schema_storage.config.import_schema_path,
-            self._schema_storage.config.export_schema_path,
             self.dev_mode,
             self.collector,
             False,
@@ -406,8 +400,6 @@ class Pipeline(SupportsPipeline):
                 deepcopy(self._destination),
                 deepcopy(self._staging),
                 self.dataset_name,
-                self._schema_storage.config.import_schema_path,
-                self._schema_storage.config.export_schema_path,
                 self.dev_mode,
                 deepcopy(self.collector),
                 False,
@@ -778,40 +770,23 @@ class Pipeline(SupportsPipeline):
         self._set_dataset_name(dataset_name)
 
         state = self._get_state()
-        state_changed = False
         try:
             try:
                 restored_schemas: Sequence[Schema] = None
 
                 remote_state = self._restore_state_from_destination()
+                if remote_state:
+                    restored_schemas = self._get_schemas_from_destination(
+                        remote_state["schema_names"], always_download=True
+                    )
 
-                # if remote state is newer or same
-                # print(f'REMOTE STATE: {(remote_state or {}).get("_state_version")} >= {state["_state_version"]}')
-                # TODO: check if remote_state["_state_version"] is not in 10 recent version. then we know remote is newer.
-                if remote_state and remote_state["_state_version"] >= state["_state_version"]:
-                    state_changed = remote_state["_version_hash"] != state.get("_version_hash")
-                    # print(f"MERGED STATE: {bool(merged_state)}")
-                    if state_changed:
-                        # see if state didn't change the pipeline name
-                        if state["pipeline_name"] != remote_state["pipeline_name"]:
-                            raise CannotRestorePipelineException(
-                                state["pipeline_name"],
-                                self.pipelines_dir,
-                                "destination state contains state for pipeline with name"
-                                f" {remote_state['pipeline_name']}",
-                            )
-                        # if state was modified force get all schemas
-                        restored_schemas = self._get_schemas_from_destination(
-                            remote_state["schema_names"], always_download=True
-                        )
-                        # TODO: we should probably wipe out pipeline here
-                # if we didn't full refresh schemas, get only missing schemas
                 if restored_schemas is None:
                     restored_schemas = self._get_schemas_from_destination(
                         state["schema_names"], always_download=False
                     )
+
                 # commit all the changes locally
-                if state_changed:
+                if remote_state:
                     # use remote state as state
                     remote_state["_local"] = state["_local"]
                     state = remote_state
@@ -841,11 +816,7 @@ class Pipeline(SupportsPipeline):
                         # reset pipeline
                         self._wipe_working_folder()
                         state = self._get_state()
-                        self._configure(
-                            self._schema_storage_config.import_schema_path,
-                            self._schema_storage_config.export_schema_path,
-                            False,
-                        )
+                        self._configure(must_attach_to_local_pipeline=False)
 
             # write the state back
             self._props_to_state(state)
@@ -1143,13 +1114,11 @@ class Pipeline(SupportsPipeline):
             self._wipe_working_folder()
 
     def _configure(
-        self, import_schema_path: str, export_schema_path: str, must_attach_to_local_pipeline: bool
+        self, must_attach_to_local_pipeline: bool
     ) -> None:
         # create schema storage and folders
         self._schema_storage_config = SchemaStorageConfiguration(
             schema_volume_path=os.path.join(self.working_dir, "schemas"),
-            import_schema_path=import_schema_path,
-            export_schema_path=export_schema_path,
         )
         # create default configs
         self._normalize_storage_config()
@@ -1584,9 +1553,11 @@ class Pipeline(SupportsPipeline):
                         )
                         # try to import schema
                         with contextlib.suppress(FileNotFoundError):
-                            self._schema_storage.load_schema(schema.name)
+                            self._schema_storage.load_schema(schema.name) # TODO check schemaless
                     else:
-                        schema = Schema.from_dict(json.loads(schema_info.schema))
+                        # dest_schema = strip_down_schema(json.loads(schema_info.schema))
+                        dest_schema = json.loads(schema_info.schema)
+                        schema = Schema.from_dict(dest_schema)
                         logger.info(
                             f"The schema {schema.name} version {schema.version} hash"
                             f" {schema.stored_version_hash} was restored from the destination"

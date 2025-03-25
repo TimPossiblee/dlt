@@ -20,6 +20,15 @@ class PluginContext(ContainerInjectableContext):
         self.manager = pluggy.PluginManager("dlt")
         self.plugin_modules = []
 
+        # run_context
+        # TODO find out why this is needed, just added back to make pipeline run work
+        from dlt.common.runtime import run_context
+
+        self.manager.add_hookspecs(run_context)
+        self.manager.register(run_context)
+
+        self.plugin_modules = load_setuptools_entrypoints(self.manager)
+
 
 def manager() -> pluggy.PluginManager:
     """Returns current plugin context"""

@@ -219,12 +219,8 @@ class SupportsTracking(Protocol):
     ) -> None: ...
 
 
-# plug in your own tracking modules here
-TRACKING_MODULES: List[SupportsTracking] = None
-
-
 def start_trace(step: TPipelineStep, pipeline: SupportsPipeline) -> PipelineTrace:
-    trace = PipelineTrace(
+    return PipelineTrace(
         uniq_id(),
         pipeline.pipeline_name,
         get_execution_context(),
@@ -232,20 +228,12 @@ def start_trace(step: TPipelineStep, pipeline: SupportsPipeline) -> PipelineTrac
         steps=[],
         resolved_config_values=[],
     )
-    for module in TRACKING_MODULES:
-        with suppress_and_warn(f"on_start_trace on module {module} failed"):
-            module.on_start_trace(trace, step, pipeline)
-    return trace
 
 
 def start_trace_step(
     trace: PipelineTrace, step: TPipelineStep, pipeline: SupportsPipeline
 ) -> PipelineStepTrace:
-    trace_step = PipelineStepTrace(uniq_id(), step, pendulum.now())
-    for module in TRACKING_MODULES:
-        with suppress_and_warn(f"start_trace_step on module {module} failed"):
-            module.on_start_trace_step(trace, step, pipeline)
-    return trace_step
+    return PipelineStepTrace(uniq_id(), step, pendulum.now())
 
 
 def end_trace_step(
@@ -292,9 +280,7 @@ def end_trace_step(
 
     trace.resolved_config_values[:] = list(resolved_values)
     trace.steps.append(step)
-    for module in TRACKING_MODULES:
-        with suppress_and_warn(f"end_trace_step on module {module} failed"):
-            module.on_end_trace_step(trace, step, pipeline, step_info, send_state)
+
     return trace
 
 
@@ -304,9 +290,7 @@ def end_trace(
     trace = trace._replace(finished_at=pendulum.now())
     if trace_path:
         save_trace(trace_path, trace)
-    for module in TRACKING_MODULES:
-        with suppress_and_warn(f"end_trace on module {module} failed"):
-            module.on_end_trace(trace, pipeline, send_state)
+
     return trace
 
 
