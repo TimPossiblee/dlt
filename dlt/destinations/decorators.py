@@ -34,7 +34,6 @@ def destination(
     name: str = None,
     naming_convention: str = "direct",
     skip_dlt_columns_and_tables: bool = True,
-    max_table_nesting: int = 0,
     spec: Type[CustomDestinationClientConfiguration] = None,
     max_parallel_load_jobs: Optional[int] = None,
     loader_parallelism_strategy: Optional[TLoaderParallelismStrategy] = None,
@@ -50,7 +49,6 @@ def destination(
     name: str = None,
     naming_convention: str = "direct",
     skip_dlt_columns_and_tables: bool = True,
-    max_table_nesting: int = 0,
     spec: Type[CustomDestinationClientConfiguration] = None,
     max_parallel_load_jobs: Optional[int] = None,
     loader_parallelism_strategy: Optional[TLoaderParallelismStrategy] = None,
@@ -68,7 +66,6 @@ def destination(
     name: str = None,
     naming_convention: str = "direct",
     skip_dlt_columns_and_tables: bool = True,
-    max_table_nesting: int = 0,
     spec: Type[CustomDestinationClientConfiguration] = None,
     max_parallel_load_jobs: Optional[int] = None,
     loader_parallelism_strategy: Optional[TLoaderParallelismStrategy] = None,
@@ -93,7 +90,6 @@ def destination(
         loader_file_format: defines in which format files are stored in the load package before being sent to the destination function, this can be puae-jsonl or parquet.
         name: defines the name of the destination that gets created by the destination decorator, defaults to the name of the function
         naming_convention: defines the name of the destination that gets created by the destination decorator. This controls how table and column names are normalized. The default is direct which will keep all names the same.
-        max_nesting_level: defines how deep the normalizer will go to normalize nested fields on your data to create subtables. This overwrites any settings on your source and is set to zero to not create any nested tables by default.
         skip_dlt_columns_and_tables: defines wether internal tables and columns will be fed into the custom destination function. This is set to True by default.
         spec: defines a configuration spec that will be used to to inject arguments into the decorated functions. Argument not in spec will not be injected
         max_parallel_load_jobs: how many load jobs at most will be running during the load
@@ -121,7 +117,6 @@ def destination(
                     destination_name=destination_name,
                     naming_convention=naming_convention,
                     skip_dlt_columns_and_tables=skip_dlt_columns_and_tables,
-                    max_table_nesting=max_table_nesting,
                     max_parallel_load_jobs=max_parallel_load_jobs,
                     loader_parallelism_strategy=loader_parallelism_strategy,
                 )

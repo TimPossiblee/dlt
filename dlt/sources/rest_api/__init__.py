@@ -78,8 +78,6 @@ def rest_api_source(
     config: RESTAPIConfig,
     name: str = None,
     section: str = None,
-    max_table_nesting: int = None,
-    root_key: bool = False,
     schema: Schema = None,
     schema_contract: TSchemaContract = None,
     parallelized: bool = False,
@@ -90,12 +88,6 @@ def rest_api_source(
         config (RESTAPIConfig): Configuration for the REST API source.
         name (str, optional): Name of the source.
         section (str, optional): Section of the configuration file.
-        max_table_nesting (int, optional): Maximum depth of nested table above which
-            the remaining nodes are loaded as structs or JSON.
-        root_key (bool, optional): Enables merging on all resources by propagating
-            root foreign key to child tables. This option is most useful if you
-            plan to change write disposition of a resource to disable/enable merge.
-            Defaults to False.
         schema (Schema, optional): An explicit `Schema` instance to be associated
             with the source. If not present, `dlt` creates a new `Schema` object
             with provided `name`. If such `Schema` already exists in the same
@@ -136,8 +128,6 @@ def rest_api_source(
     decorated = rest_api.clone(
         name=name,
         section=section,
-        max_table_nesting=max_table_nesting,
-        root_key=root_key,
         schema=schema,
         schema_contract=schema_contract,
         parallelized=parallelized,

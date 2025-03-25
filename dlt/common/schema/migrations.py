@@ -142,9 +142,6 @@ def migrate_schema(schema_dict: DictStrAny, from_engine: int, to_engine: int) ->
             if dlt_id_col := table["columns"].get(c_dlt_id):
                 # add row key only if unique is set
                 dlt_id_col["row_key"] = dlt_id_col.get("unique", False)
-            if parent_dlt_id_col := table["columns"].get(c_dlt_parent_id):
-                # add parent key
-                parent_dlt_id_col["parent_key"] = parent_dlt_id_col.get("foreign_key", False)
             # drop all foreign keys
             for column in table["columns"].values():
                 column.pop("foreign_key", None)
@@ -161,7 +158,6 @@ def migrate_schema(schema_dict: DictStrAny, from_engine: int, to_engine: int) ->
             default_hints.pop("foreign_key", None)
             # add row and parent key
             default_hints["row_key"] = [TSimpleRegex(c_dlt_id)]
-            default_hints["parent_key"] = [TSimpleRegex(c_dlt_parent_id)]
 
         # remove `generate_dlt_id` from normalizer
         if json_norm := normalizers.get("json"):

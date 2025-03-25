@@ -33,10 +33,6 @@ class DataItemNormalizer(abc.ABC, Generic[TNormalizerConfig]):
         pass
 
     @abc.abstractmethod
-    def extend_table(self, table_name: str) -> None:
-        pass
-
-    @abc.abstractmethod
     def remove_table(self, table_name: str) -> None:
         pass
 

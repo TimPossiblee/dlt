@@ -232,58 +232,6 @@ class DltSource(Iterable[TDataItem]):
     def name(self) -> str:
         return self._schema.name
 
-    # TODO: max_table_nesting/root_key below must go somewhere else ie. into RelationalSchema which is Schema + Relational normalizer.
-    @property
-    def max_table_nesting(self) -> int:
-        """A schema hint that sets the maximum depth of nested table above which the remaining nodes are loaded as structs or JSON."""
-        return RelationalNormalizer.get_normalizer_config(self._schema).get("max_nesting")
-
-    @max_table_nesting.setter
-    def max_table_nesting(self, value: int) -> None:
-        if value is None:
-            # this also check the normalizer type
-            config = RelationalNormalizer.get_normalizer_config(self._schema)
-            config.pop("max_nesting", None)
-        else:
-            RelationalNormalizer.update_normalizer_config(self._schema, {"max_nesting": value})
-
-    @property
-    def root_key(self) -> bool:
-        """Enables merging on all resources by propagating root foreign key to nested tables. This option is most useful if you plan to change write disposition of a resource to disable/enable merge"""
-        # this also check the normalizer type
-        config = RelationalNormalizer.get_normalizer_config(self._schema).get("propagation")
-        data_normalizer = self._schema.data_item_normalizer
-        assert isinstance(data_normalizer, RelationalNormalizer)
-        return (
-            config is not None
-            and "root" in config
-            and data_normalizer.c_dlt_id in config["root"]
-            and config["root"][data_normalizer.c_dlt_id] == data_normalizer.c_dlt_root_id
-        )
-
-    @root_key.setter
-    def root_key(self, value: bool) -> None:
-        # this also check the normalizer type
-        config = RelationalNormalizer.get_normalizer_config(self._schema)
-        data_normalizer = self._schema.data_item_normalizer
-        assert isinstance(data_normalizer, RelationalNormalizer)
-
-        if value is True:
-            RelationalNormalizer.update_normalizer_config(
-                self._schema,
-                {
-                    "propagation": {
-                        "root": {
-                            data_normalizer.c_dlt_id: TColumnName(data_normalizer.c_dlt_root_id)
-                        }
-                    }
-                },
-            )
-        else:
-            if self.root_key:
-                propagation_config = config["propagation"]
-                propagation_config["root"].pop(data_normalizer.c_dlt_id)
-
     @property
     def schema_contract(self) -> TSchemaContract:
         return self.schema.settings.get("schema_contract")

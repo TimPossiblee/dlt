@@ -76,8 +76,6 @@ TColumnProp = Literal[
     "unique",
     "merge_key",
     "row_key",
-    "parent_key",
-    "root_key",
     "hard_delete",
     "dedup_sort",
 ]
@@ -93,8 +91,6 @@ TColumnHint = Literal[
     "unique",
     "merge_key",
     "row_key",
-    "parent_key",
-    "root_key",
     "hard_delete",
     "dedup_sort",
 ]
@@ -123,8 +119,6 @@ _ColumnPropInfos = [
     TColumnPropInfo("unique", (False, None)),
     TColumnPropInfo("merge_key", (False, None)),
     TColumnPropInfo("row_key", (False, None)),
-    TColumnPropInfo("parent_key", (False, None)),
-    TColumnPropInfo("root_key", (False, None)),
     TColumnPropInfo("hard_delete", (False, None)),
     TColumnPropInfo("dedup_sort", (False, None)),
     # any x- hint with special settings ie. defaults
@@ -175,8 +169,6 @@ class TColumnSchema(TColumnSchemaBase, total=False):
     sort: Optional[bool]
     primary_key: Optional[bool]
     row_key: Optional[bool]
-    parent_key: Optional[bool]
-    root_key: Optional[bool]
     merge_key: Optional[bool]
     variant: Optional[bool]
     hard_delete: Optional[bool]

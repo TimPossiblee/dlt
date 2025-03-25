@@ -165,9 +165,6 @@ class DestinationCapabilitiesContext(ContainerInjectableContext):
     supports_clone_table: bool = False
     """Destination supports CREATE TABLE ... CLONE ... statements"""
 
-    max_table_nesting: Optional[int] = None
-    """Allows a destination to overwrite max_table_nesting from source"""
-
     supported_merge_strategies: Sequence[TLoaderMergeStrategy] = None
     merge_strategies_selector: MergeStrategySelector = None
     supported_replace_strategies: Sequence[TLoaderReplaceStrategy] = None

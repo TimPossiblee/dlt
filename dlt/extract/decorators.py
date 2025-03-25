@@ -115,8 +115,6 @@ class DltSourceFactoryWrapper(SourceFactory[TSourceFunParams, TDltSourceImpl]):
 
         self.name: str = None
         self.section: str = None
-        self.max_table_nesting: int = None
-        self.root_key: bool = False
         self.schema: Schema = None
         self.schema_contract: TSchemaContract = None
         self.spec: Type[BaseConfiguration] = None
@@ -128,8 +126,6 @@ class DltSourceFactoryWrapper(SourceFactory[TSourceFunParams, TDltSourceImpl]):
         *,
         name: str = None,
         section: str = None,
-        max_table_nesting: int = None,
-        root_key: bool = None,
         schema: Schema = None,
         schema_contract: TSchemaContract = None,
         spec: Type[BaseConfiguration] = None,
@@ -150,14 +146,6 @@ class DltSourceFactoryWrapper(SourceFactory[TSourceFunParams, TDltSourceImpl]):
             ovr.section = section
         else:
             ovr.section = self.section
-        if max_table_nesting is not None:
-            ovr.max_table_nesting = max_table_nesting
-        else:
-            ovr.max_table_nesting = self.max_table_nesting
-        if root_key is not None:
-            ovr.root_key = root_key
-        else:
-            ovr.root_key = self.root_key
         ovr.schema = schema or self.schema
         if schema_contract is not None:
             ovr.schema_contract = schema_contract
@@ -191,8 +179,6 @@ class DltSourceFactoryWrapper(SourceFactory[TSourceFunParams, TDltSourceImpl]):
             source.section = ""
             # apply selected settings directly to resource
             resource = source.single_resource
-            if self.max_table_nesting is not None:
-                resource.max_table_nesting = self.max_table_nesting
             if self.schema_contract is not None:
                 resource.apply_hints(schema_contract=self.schema_contract)
         else:
@@ -247,11 +233,7 @@ class DltSourceFactoryWrapper(SourceFactory[TSourceFunParams, TDltSourceImpl]):
             # convert to source
             s = self._impl_cls.from_data(schema_copy, source_section, _rv)
             # apply hints
-            if self.max_table_nesting is not None:
-                s.max_table_nesting = self.max_table_nesting
             s.schema_contract = self.schema_contract
-            # enable root propagation
-            s.root_key = self.root_key
             # parallelize resources
             if self.parallelized:
                 s.parallelize()
@@ -320,8 +302,6 @@ def source(
     /,
     name: str = None,
     section: str = None,
-    max_table_nesting: int = None,
-    root_key: bool = False,
     schema: Schema = None,
     schema_contract: TSchemaContract = None,
     spec: Type[BaseConfiguration] = None,
@@ -336,8 +316,6 @@ def source(
     /,
     name: str = None,
     section: str = None,
-    max_table_nesting: int = None,
-    root_key: bool = False,
     schema: Schema = None,
     schema_contract: TSchemaContract = None,
     spec: Type[BaseConfiguration] = None,
@@ -353,8 +331,6 @@ def source(
     /,
     name: str = None,
     section: str = None,
-    max_table_nesting: int = None,
-    root_key: bool = False,
     schema: Schema = None,
     schema_contract: TSchemaContract = None,
     spec: Type[BaseConfiguration] = None,
@@ -387,10 +363,6 @@ def source(
 
         section (str, optional): A name of configuration. If not present, the current python module name will be used.
 
-        max_table_nesting (int, optional): A schema hint that sets the maximum depth of nested table above which the remaining nodes are loaded as structs or JSON.
-
-        root_key (bool): Enables merging on all resources by propagating row key from root to all nested tables. This option is most useful if you plan to change write disposition of a resource to disable/enable merge. Defaults to False.
-
         schema (Schema, optional): An explicit `Schema` instance to be associated with the source. If not present, `dlt` creates a new `Schema` object with provided `name`. If such `Schema` already exists in the same folder as the module containing the decorated function, such schema will be loaded from file.
 
         schema_contract (TSchemaContract, optional): Schema contract settings that will be applied to this resource.
@@ -415,8 +387,6 @@ def source(
         .clone(
             name=name,
             section=section,
-            max_table_nesting=max_table_nesting,
-            root_key=root_key,
             schema=schema,
             schema_contract=schema_contract,
             spec=spec,
@@ -439,7 +409,6 @@ def resource(
     /,
     name: str = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDispositionConfig] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -462,7 +431,6 @@ def resource(
     /,
     name: str = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDispositionConfig] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -485,7 +453,6 @@ def resource(
     /,
     name: TTableHintTemplate[str] = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDispositionConfig] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -511,7 +478,6 @@ def resource(
     /,
     name: str = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDispositionConfig] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -533,7 +499,6 @@ def resource(
     /,
     name: TTableHintTemplate[str] = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDispositionConfig] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -579,8 +544,6 @@ def resource(
 
         table_name (TTableHintTemplate[str], optional): An table name, if different from `name`.
             This argument also accepts a callable that is used to dynamically create tables for stream-like resources yielding many datatypes.
-
-        max_table_nesting (int, optional): A schema hint that sets the maximum depth of nested table above which the remaining nodes are loaded as structs or JSON.
 
         write_disposition (TTableHintTemplate[TWriteDispositionConfig], optional): Controls how to write data to a table. Accepts a shorthand string literal or configuration dictionary.
             Allowed shorthand string literals: `append` will always add new data at the end of the table. `replace` will replace existing data with new data. `skip` will prevent data from loading. "merge" will deduplicate and merge data based on "primary_key" and "merge_key" hints. Defaults to "append".
@@ -658,12 +621,6 @@ def resource(
         if incremental:
             # Reset the flag to allow overriding by incremental argument
             resource.incremental._from_hints = False
-        # If custom nesting level was specified then
-        # we need to add it to table hints so that
-        # later in normalizer dlt/common/normalizers/json/relational.py
-        # we can override max_nesting level for the given table
-        if max_table_nesting is not None:
-            resource.max_table_nesting = max_table_nesting
         if parallelized:
             return resource.parallelize()
         return resource
@@ -794,7 +751,6 @@ def transformer(
     data_from: TUnboundDltResource = DltResource.Empty,
     name: str = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDisposition] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -815,7 +771,6 @@ def transformer(
     data_from: TUnboundDltResource = DltResource.Empty,
     name: TTableHintTemplate[str] = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDisposition] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -840,7 +795,6 @@ def transformer(
     data_from: TUnboundDltResource = DltResource.Empty,
     name: str = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDisposition] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -861,7 +815,6 @@ def transformer(
     data_from: TUnboundDltResource = DltResource.Empty,
     name: TTableHintTemplate[str] = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDisposition] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -882,7 +835,6 @@ def transformer(
     data_from: TUnboundDltResource = DltResource.Empty,
     name: TTableHintTemplate[str] = None,
     table_name: TTableHintTemplate[str] = None,
-    max_table_nesting: int = None,
     write_disposition: TTableHintTemplate[TWriteDisposition] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -932,8 +884,6 @@ def transformer(
         table_name (TTableHintTemplate[str], optional): An table name, if different from `name`.
             This argument also accepts a callable that is used to dynamically create tables for stream-like resources yielding many datatypes.
 
-        max_table_nesting (int, optional): A schema hint that sets the maximum depth of nested table above which the remaining nodes are loaded as structs or JSON.
-
         write_disposition (Literal["skip", "append", "replace", "merge"], optional): Controls how to write data to a table. `append` will always add new data at the end of the table. `replace` will replace existing data with new data. `skip` will prevent data from loading. "merge" will deduplicate and merge data based on "primary_key" and "merge_key" hints. Defaults to "append".
             This argument also accepts a callable that is used to dynamically create tables for stream-like resources yielding many datatypes.
 
@@ -979,7 +929,6 @@ def transformer(
         f,
         name=name,
         table_name=table_name,
-        max_table_nesting=max_table_nesting,
         write_disposition=write_disposition,
         columns=columns,
         primary_key=primary_key,

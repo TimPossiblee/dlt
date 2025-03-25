@@ -12,7 +12,6 @@ from dlt.common.schema.utils import (
     get_columns_names_with_prop,
     get_first_column_name_with_prop,
     has_column_with_prop,
-    is_nested_table,
     pipeline_state_table,
 )
 
@@ -94,10 +93,6 @@ def verify_schema_merge_disposition(
 
     # verifies schema settings specific to sql job client
     for table in load_tables:
-        # from now on validate only top level tables
-        if is_nested_table(table):
-            continue
-
         table_name = table["name"]
         if table.get("write_disposition") == "merge":
             if "x-merge-strategy" in table and table["x-merge-strategy"] not in MERGE_STRATEGIES:  # type: ignore[typeddict-item]

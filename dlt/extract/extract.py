@@ -300,9 +300,7 @@ class Extract(WithStepInfo[ExtractMetrics, ExtractInfo]):
             if resource.name not in tables_by_resources:
                 continue
             for table in tables_by_resources[resource.name]:
-                # we only need to write empty files for the root tables
-                if not utils.is_nested_table(table):
-                    json_extractor.write_empty_items_file(table["name"])
+                json_extractor.write_empty_items_file(table["name"])
 
         # collect resources that received empty materialized lists and had no items
         resources_with_empty = (
@@ -318,9 +316,7 @@ class Extract(WithStepInfo[ExtractMetrics, ExtractInfo]):
                 if tables := tables_by_resources.get("resource_name"):
                     # write empty tables
                     for table in tables:
-                        # we only need to write empty files for the root tables
-                        if not utils.is_nested_table(table):
-                            json_extractor.write_empty_items_file(table["name"])
+                        json_extractor.write_empty_items_file(table["name"])
                 else:
                     table_name = json_extractor._get_static_table_name(resource, None)
                     if table_name:

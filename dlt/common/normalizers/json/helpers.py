@@ -15,7 +15,6 @@ from dlt.common.schema.typing import TColumnName, TColumnSchema, C_DLT_ID, DLT_N
 from dlt.common.schema.utils import (
     get_columns_names_with_prop,
     get_first_column_name_with_prop,
-    is_nested_table,
 )
 from dlt.common.utils import digest128, digest128b
 
@@ -36,20 +35,6 @@ def normalize_identifier(schema: Schema, naming: NamingConvention, identifier: s
         return naming.normalize_path(identifier)
     else:
         return naming.normalize_identifier(identifier)
-
-
-def get_table_nesting_level(
-    schema: Schema, table_name: str, default_nesting: int = 1000
-) -> Optional[int]:
-    """gets table nesting level, will inherit from parent if not set"""
-
-    table = schema.tables.get(table_name)
-    if (
-        table
-        and (max_nesting := cast(int, table.get("x-normalizer", {}).get("max_nesting"))) is not None
-    ):
-        return max_nesting
-    return default_nesting
 
 
 def get_primary_key(schema: Schema, table_name: str) -> List[str]:
@@ -85,15 +70,6 @@ def is_nested_type(
         data_type = column["data_type"]
 
     return data_type == "json"
-
-
-def should_be_nested(schema: Schema, table_name: str) -> bool:
-    """Tells if table should be nested or should be a root table. All tables created by the normalizer
-    are nested, defined tables are checked.
-    """
-    if table := schema.tables.get(table_name):
-        return is_nested_table(table)
-    return True
 
 
 def get_root_row_id_type(schema: Schema, table_name: str) -> TRowIdType:

@@ -437,7 +437,6 @@ class Schema:
                 # merge tables performing additional checks
                 partial_table = utils.merge_table(self.name, table, partial_table)
 
-        self.data_item_normalizer.extend_table(table_name)
         return partial_table
 
     def update_schema(self, schema: "Schema") -> None:

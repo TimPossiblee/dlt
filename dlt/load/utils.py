@@ -5,7 +5,6 @@ from dlt.common import logger
 from dlt.common.storages.load_package import LoadJobInfo, PackageStorage, TPackageJobState
 from dlt.common.schema.utils import (
     fill_hints_from_parent_and_clone_table,
-    get_nested_tables,
     get_root_table,
     has_table_seen_data,
 )
@@ -36,10 +35,7 @@ def get_completed_table_chain(
     )
 
     # make sure all the jobs for the table chain is completed
-    for table in map(
-        lambda t: fill_hints_from_parent_and_clone_table(schema.tables, t),
-        get_nested_tables(schema.tables, top_merged_table["name"]),
-    ):
+    for table in (fill_hints_from_parent_and_clone_table(schema.tables, t) for t in [top_merged_table]):
         table_jobs = PackageStorage.filter_jobs_for_table(all_jobs, table["name"])
         # skip tables that never seen data
         if not has_table_seen_data(table):
@@ -213,7 +209,7 @@ def _extend_tables_with_table_chain(
         )
         for table in map(
             lambda t: fill_hints_from_parent_and_clone_table(schema.tables, t),
-            get_nested_tables(schema.tables, top_job_table["name"]),
+            [top_job_table],
         ):
             chain_table_name = table["name"]
             table_has_job = chain_table_name in tables_with_jobs

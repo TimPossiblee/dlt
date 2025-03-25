@@ -16,7 +16,6 @@ from dlt.common.schema.utils import (
     get_dedup_sort_tuple,
     get_validity_column_names,
     get_active_record_timestamp,
-    is_nested_table,
 )
 from dlt.common.storages.load_storage import ParsedLoadJobFileName
 from dlt.common.storages.load_package import load_package as current_load_package
@@ -386,14 +385,6 @@ class SqlMergeFollowupJob(SqlFollowupJob):
         return f"UPDATE {table_name} SET"
 
     @classmethod
-    def requires_temp_table_for_delete(cls) -> bool:
-        """Whether a temporary table is required to delete records.
-
-        Must be `True` for destinations that don't support correlated subqueries.
-        """
-        return False
-
-    @classmethod
     def _escape_list(cls, list_: List[str], escape_id: Callable[[str], str]) -> List[str]:
         return list(map(escape_id, list_))
 
@@ -471,28 +462,6 @@ class SqlMergeFollowupJob(SqlFollowupJob):
         )
 
     @classmethod
-    def _get_root_key_col(
-        cls,
-        table_chain: Sequence[PreparedTableSchema],
-        sql_client: SqlClientBase[Any],
-        table: PreparedTableSchema,
-    ) -> str:
-        """Returns name of first column in `table` with `root_key` property.
-
-        Raises `MergeDispositionException` if no such column exists.
-        """
-        return cls._get_prop_col_or_raise(
-            table,
-            "root_key",
-            MergeDispositionException(
-                sql_client.fully_qualified_dataset_name(),
-                sql_client.fully_qualified_dataset_name(staging=True),
-                [t["name"] for t in table_chain],
-                f"No `root_key` column (e.g. `_dlt_root_id`) in table `{table['name']}`.",
-            ),
-        )
-
-    @classmethod
     def _get_prop_col_or_raise(
         cls, table: PreparedTableSchema, prop: Union[TColumnProp, str], exception: Exception
     ) -> str:
@@ -511,11 +480,10 @@ class SqlMergeFollowupJob(SqlFollowupJob):
     ) -> List[str]:
         """Generates a list of sql statements that merge the data in staging dataset with the data in destination dataset.
 
-        The `table_chain` contains a list schemas of a tables with row_key - parent_key nested reference, ordered by the ancestry (the root of the tree is first on the list).
+        The `table_chain` contains the root table.
         The root table is merged using primary_key and merge_key hints which can be compound and be both specified. In that case the OR clause is generated.
-        The nested tables are merged based on propagated `root_key` which is a type of foreign key but always leading to a root table.
 
-        First we store the root_keys of root table elements to be deleted in the temp table. Then we use the temp table to delete records from root and all netsed tables in the destination dataset.
+        Then we use the temp table to delete records from root and all netsed tables in the destination dataset.
         At the end we copy the data from the staging dataset into destination dataset.
 
         If a hard_delete column is specified, records flagged as deleted will be excluded from the copy into the destination dataset.
@@ -551,50 +519,12 @@ class SqlMergeFollowupJob(SqlFollowupJob):
         if not append_fallback:
             key_clauses = cls._gen_key_table_clauses(primary_keys, merge_keys)
 
-            row_key_column: str = None
-            root_key_column: str = None
-
-            if len(table_chain) == 1 and not cls.requires_temp_table_for_delete():
-                key_table_clauses = cls.gen_key_table_clauses(
-                    root_table_name, staging_root_table_name, key_clauses, for_delete=True
-                )
-                # if no nested tables, just delete data from root table
-                for clause in key_table_clauses:
-                    sql.append(f"DELETE {clause};")
-            else:
-                key_table_clauses = cls.gen_key_table_clauses(
-                    root_table_name, staging_root_table_name, key_clauses, for_delete=False
-                )
-                # use row_key or unique hint to create temp table with all identifiers to delete
-                row_key_column = escape_column_id(
-                    cls._get_row_key_col(table_chain, sql_client, root_table)
-                )
-                create_delete_temp_table_sql, delete_temp_table_name = (
-                    cls.gen_delete_temp_table_sql(
-                        root_table["name"], row_key_column, key_table_clauses, sql_client
-                    )
-                )
-                sql.extend(create_delete_temp_table_sql)
-
-                # delete from nested tables first. This is important for databricks which does not support temporary tables,
-                # but uses temporary views instead
-                for table in table_chain[1:]:
-                    table_name = sql_client.make_qualified_table_name(table["name"])
-                    root_key_column = escape_column_id(
-                        cls._get_root_key_col(table_chain, sql_client, table)
-                    )
-                    sql.append(
-                        cls.gen_delete_from_sql(
-                            table_name, root_key_column, delete_temp_table_name, row_key_column
-                        )
-                    )
-
-                # delete from root table now that nested tables have been processed
-                sql.append(
-                    cls.gen_delete_from_sql(
-                        root_table_name, row_key_column, delete_temp_table_name, row_key_column
-                    )
-                )
+            key_table_clauses = cls.gen_key_table_clauses(
+                root_table_name, staging_root_table_name, key_clauses, for_delete=True
+            )
+            # if no nested tables, just delete data from root table
+            for clause in key_table_clauses:
+                sql.append(f"DELETE {clause};")
 
         # get hard delete information
         hard_delete_col, not_deleted_cond = cls._get_hard_delete_col_and_cond(
@@ -607,39 +537,11 @@ class SqlMergeFollowupJob(SqlFollowupJob):
         # get dedup sort information
         dedup_sort = get_dedup_sort_tuple(root_table)
 
-        insert_temp_table_name: str = None
-        if len(table_chain) > 1:
-            if len(primary_keys) > 0 or hard_delete_col is not None:
-                # condition_columns = [hard_delete_col] if not_deleted_cond is not None else None
-                condition_columns = None if hard_delete_col is None else [hard_delete_col]
-                (
-                    create_insert_temp_table_sql,
-                    insert_temp_table_name,
-                ) = cls.gen_insert_temp_table_sql(
-                    root_table["name"],
-                    staging_root_table_name,
-                    sql_client,
-                    primary_keys,
-                    row_key_column,
-                    dedup_sort,
-                    not_deleted_cond,
-                    condition_columns,
-                )
-                sql.extend(create_insert_temp_table_sql)
-
         # insert from staging to dataset
         for table in table_chain:
             table_name, staging_table_name = sql_client.get_qualified_table_names(table["name"])
 
             insert_cond = not_deleted_cond if hard_delete_col is not None else "1 = 1"
-            if (len(primary_keys) > 0 and len(table_chain) > 1) or (
-                len(primary_keys) == 0
-                and is_nested_table(table)  # nested table
-                and hard_delete_col is not None
-            ):
-                uniq_column = root_key_column if is_nested_table(table) else row_key_column
-                insert_cond = f"{uniq_column} IN (SELECT * FROM {insert_temp_table_name})"
-
             columns = list(map(escape_column_id, get_columns_names_with_prop(table, "name")))
             col_str = ", ".join(columns)
             select_sql = f"SELECT {col_str} FROM {staging_table_name} WHERE {insert_cond}"
@@ -696,51 +598,6 @@ class SqlMergeFollowupJob(SqlFollowupJob):
                 THEN INSERT ({col_str.format(alias="")}) VALUES ({col_str.format(alias="s.")});
         """)
 
-        # generate statements for nested tables if they exist
-        nested_tables = table_chain[1:]
-        if nested_tables:
-            root_row_key_column = escape_column_id(
-                cls._get_row_key_col(table_chain, sql_client, root_table)
-            )
-            for table in nested_tables:
-                nested_row_key_column = escape_column_id(
-                    cls._get_row_key_col(table_chain, sql_client, table)
-                )
-                root_key_column = escape_column_id(
-                    cls._get_root_key_col(table_chain, sql_client, table)
-                )
-                table_name, staging_table_name = sql_client.get_qualified_table_names(table["name"])
-
-                # delete records for elements no longer in the list
-                sql.append(f"""
-                    DELETE FROM {table_name}
-                    WHERE {root_key_column} IN (SELECT {root_row_key_column} FROM {staging_root_table_name})
-                    AND {nested_row_key_column} NOT IN (SELECT {nested_row_key_column} FROM {staging_table_name});
-                """)
-
-                # insert records for new elements in the list
-                table_column_names = list(map(escape_column_id, table["columns"]))
-                update_str = ", ".join([c + " = " + "s." + c for c in table_column_names])
-                col_str = ", ".join(["{alias}" + c for c in table_column_names])
-                sql.append(f"""
-                    MERGE INTO {table_name} d USING {staging_table_name} s
-                    ON d.{nested_row_key_column} = s.{nested_row_key_column}
-                    WHEN MATCHED
-                        THEN UPDATE SET {update_str}
-                    WHEN NOT MATCHED
-                        THEN INSERT ({col_str.format(alias="")}) VALUES ({col_str.format(alias="s.")});
-                """)
-
-                # delete hard-deleted records
-                if hard_delete_col is not None:
-                    sql.append(f"""
-                        DELETE FROM {table_name}
-                        WHERE {root_key_column} IN (
-                            SELECT {root_row_key_column}
-                            FROM {staging_root_table_name}
-                            WHERE {deleted_cond}
-                        );
-                    """)
         return sql
 
     @classmethod
@@ -830,24 +687,5 @@ class SqlMergeFollowupJob(SqlFollowupJob):
             FROM {staging_root_table_name} AS s
             WHERE {hash_} NOT IN (SELECT {hash_} FROM {root_table_name} WHERE {is_active});
         """)
-
-        # insert list elements for new active records in nested tables
-        nested_tables = table_chain[1:]
-        if nested_tables:
-            # TODO: - based on deterministic nested hashes (OK)
-            # - if row hash changes all is right
-            # - if it does not we only capture new records, while we should replace existing with those in stage
-            # - this write disposition is way more similar to regular merge (how root tables are handled is different, other tables handled same)
-            for table in nested_tables:
-                row_key_column = escape_column_id(
-                    cls._get_row_key_col(table_chain, sql_client, table)
-                )
-                table_name, staging_table_name = sql_client.get_qualified_table_names(table["name"])
-                sql.append(f"""
-                    INSERT INTO {table_name}
-                    SELECT *
-                    FROM {staging_table_name}
-                    WHERE {row_key_column} NOT IN (SELECT {row_key_column} FROM {table_name});
-                """)
 
         return sql

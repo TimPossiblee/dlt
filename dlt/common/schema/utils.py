@@ -70,12 +70,6 @@ def is_valid_schema_name(name: str) -> bool:
     )
 
 
-def is_nested_table(table: TTableSchema) -> bool:
-    """Checks if table is a dlt nested table: connected to parent table via row_key - parent_key reference"""
-    # "parent" table hint indicates NESTED table.
-    return bool(table.get("parent"))
-
-
 def normalize_schema_name(name: str) -> str:
     """Normalizes schema name by using snake case naming convention. The maximum length is 64 characters"""
     snake_case = SnakeCase(InvalidSchemaName.MAXIMUM_SCHEMA_NAME_LENGTH)
@@ -97,12 +91,11 @@ def apply_defaults(stored_schema: TStoredSchema) -> TStoredSchema:
             column["name"] = column_name
             # set column with default
             # table["columns"][column_name] = column
-        # add default write disposition to root tables
-        if not is_nested_table(table):
-            if table.get("write_disposition") is None:
-                table["write_disposition"] = DEFAULT_WRITE_DISPOSITION
-            if table.get("resource") is None:
-                table["resource"] = table_name
+        # add default write disposition to tables
+        if table.get("write_disposition") is None:
+            table["write_disposition"] = DEFAULT_WRITE_DISPOSITION
+        if table.get("resource") is None:
+            table["resource"] = table_name
     return stored_schema
 
 
@@ -495,12 +488,6 @@ def diff_table(
         if existing_v != v:
             partial_table[k] = v  # type: ignore
 
-    # this should not really happen
-    if is_nested_table(tab_a) and (resource := tab_b.get("resource")):
-        raise TablePropertiesConflictException(
-            schema_name, table_name, "resource", resource, tab_a.get("parent")
-        )
-
     return partial_table
 
 
@@ -760,9 +747,6 @@ def get_inherited_table_hint(
     if hint:
         return hint
 
-    if is_nested_table(table):
-        return get_inherited_table_hint(tables, table.get("parent"), table_hint_name, allow_none)
-
     if allow_none:
         return None
 
@@ -833,29 +817,8 @@ def table_schema_has_type_with_precision(table: TTableSchema, _typ: TDataType) -
 
 
 def get_root_table(tables: TSchemaTables, table_name: str) -> TTableSchema:
-    """Finds root (without parent) of a `table_name` following the nested references (row_key - parent_key)."""
-    table = tables[table_name]
-    if is_nested_table(table):
-        return get_root_table(tables, table.get("parent"))
-    return table
-
-
-def get_nested_tables(tables: TSchemaTables, table_name: str) -> List[TTableSchema]:
-    """Get nested tables for table name and return a list of tables ordered by ancestry so the nested tables are always after their parents
-
-    Note that this function follows only NESTED TABLE reference typically expressed on _dlt_parent_id (PARENT_KEY) to _dlt_id (ROW_KEY).
-    """
-    chain: List[TTableSchema] = []
-
-    def _child(t: TTableSchema) -> None:
-        name = t["name"]
-        chain.append(t)
-        for candidate in tables.values():
-            if is_nested_table(candidate) and candidate.get("parent") == name:
-                _child(candidate)
-
-    _child(tables[table_name])
-    return chain
+    # TODO remove, useless since removal of nested tables
+    return tables[table_name]
 
 
 def group_tables_by_resource(
@@ -869,7 +832,7 @@ def group_tables_by_resource(
         resource = table.get("resource")
         if resource and (pattern is None or pattern.match(resource)):
             resource_tables = result.setdefault(resource, [])
-            resource_tables.extend(get_nested_tables(tables, table["name"]))
+            resource_tables.append(table)
     return result
 
 

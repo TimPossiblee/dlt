@@ -25,7 +25,6 @@ class CustomDestinationClientConfiguration(DestinationClientConfiguration):
     loader_file_format: TLoaderFileFormat = "typed-jsonl"
     batch_size: int = 10
     skip_dlt_columns_and_tables: bool = True
-    max_table_nesting: Optional[int] = 0
 
     def ensure_callable(self) -> None:
         """Makes sure that valid callable was provided"""

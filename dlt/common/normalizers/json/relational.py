@@ -25,10 +25,6 @@ from dlt.common.schema.typing import (
 )
 from dlt.common.schema.utils import (
     column_name_validator,
-    is_nested_table,
-    get_nested_tables,
-    has_column_with_prop,
-    get_first_column_name_with_prop,
 )
 from dlt.common.utils import update_dict_nested
 from dlt.common.normalizers.json import (
@@ -66,7 +62,6 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
 
     normalizer_config: RelationalNormalizerConfig
     propagation_config: RelationalNormalizerConfigPropagation
-    max_nesting: int
     _skip_primary_key: Dict[str, bool]
 
     def __init__(self, schema: Schema) -> None:
@@ -97,7 +92,6 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
 
         self.normalizer_config = self.schema._normalizers_config["json"].get("config") or {}  # type: ignore[assignment]
         self.propagation_config = self.normalizer_config.get("propagation", None)
-        self.max_nesting = self.normalizer_config.get("max_nesting", 1000)
         self._skip_primary_key = {}
         # create cached versions of helper functions
         self._get_root_row_id_type = lru_cache(maxsize=None)(
@@ -112,17 +106,11 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         self._normalize_identifier = lru_cache(maxsize=None)(
             partial(normalize_helpers.normalize_identifier, self.schema, self.naming)
         )
-        self._get_table_nesting_level = lru_cache(maxsize=None)(
-            partial(normalize_helpers.get_table_nesting_level, self.schema)
-        )
         self._get_primary_key = lru_cache(maxsize=None)(
             partial(normalize_helpers.get_primary_key, self.schema)
         )
         self._is_nested_type = lru_cache(maxsize=None)(
             partial(normalize_helpers.is_nested_type, self.schema)
-        )
-        self._should_be_nested = lru_cache(maxsize=None)(
-            partial(normalize_helpers.should_be_nested, self.schema)
         )
 
     def _flatten(
@@ -174,27 +162,20 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         table: str,
         dict_row: DictStrAny,
         flattened_row: DictStrAny,
-        parent_row_id: str,
-        pos: int,
-        is_root: bool,
     ) -> str:
-        if not is_root:
-            row_id = get_nested_row_hash(parent_row_id, table, pos)
-            self._link_row(flattened_row, parent_row_id, pos)
-        else:  # root table
-            row_id_type = self._get_root_row_id_type(table)
-            if row_id_type in ("key_hash", "row_hash"):
-                subset = None
-                if row_id_type == "key_hash":
-                    # primary key based hash must be performed on normalized names
-                    subset = self._get_primary_key(table)
-                    row_id = get_row_hash(flattened_row, subset=subset)
-                else:
-                    # base hash on `dict_row` instead of `flattened_row`
-                    # so changes in nested tables lead to new row id
-                    row_id = get_row_hash(dict_row)
+        row_id_type = self._get_root_row_id_type(table)
+        if row_id_type in ("key_hash", "row_hash"):
+            subset = None
+            if row_id_type == "key_hash":
+                # primary key based hash must be performed on normalized names
+                subset = self._get_primary_key(table)
+                row_id = get_row_hash(flattened_row, subset=subset)
             else:
-                row_id = generate_dlt_id()
+                # base hash on `dict_row` instead of `flattened_row`
+                # so changes in nested tables lead to new row id
+                row_id = get_row_hash(dict_row)
+        else:
+            row_id = generate_dlt_id()
 
         flattened_row[self.c_dlt_id] = row_id
         return row_id
@@ -223,7 +204,6 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         _r_lvl: int = 0,
     ) -> TNormalizedRowIterator:
         table = self._shorten_fragments(*parent_path, *ident_path)
-        is_root = not self._should_be_nested(table)
         for idx, v in enumerate(seq):
             if isinstance(v, dict):
                 # found dict element in seq
@@ -245,7 +225,7 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
                 # found non-dict in seq, so wrap it
                 wrap_v = wrap_in_dict(self.c_value, v)
                 DataItemNormalizer._extend_row(extend, wrap_v)
-                self._add_row_id(table, wrap_v, wrap_v, parent_row_id, idx, is_root)
+                self._add_row_id(table, wrap_v, wrap_v)
                 yield (table, self._shorten_fragments(*parent_path)), wrap_v
 
     def _normalize_row(
@@ -260,7 +240,7 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         is_root: bool = False,
     ) -> TNormalizedRowIterator:
         table = self._shorten_fragments(*parent_path, *ident_path)
-        is_root = is_root or not self._should_be_nested(table)
+        is_root = is_root or True
         # flatten current row and extract all lists to recur into
         flattened_row, lists = self._flatten(table, dict_row, _r_lvl)
         # always extend row
@@ -268,7 +248,7 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         # infer record hash or leave existing primary key if present
         row_id = flattened_row.get(self.c_dlt_id, None)
         if not row_id:
-            row_id = self._add_row_id(table, dict_row, flattened_row, parent_row_id, pos, is_root)
+            row_id = self._add_row_id(table, dict_row, flattened_row)
 
         # find fields to propagate to nested tables in config
         extend.update(self._get_propagated_values(table, flattened_row, is_root))
@@ -313,48 +293,11 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
                     TSimpleRegex(self.c_dlt_list_idx),
                     TSimpleRegex(self.c_dlt_load_id),
                 ],
-                "parent_key": [TSimpleRegex(self.c_dlt_parent_id)],
-                "root_key": [TSimpleRegex(self.c_dlt_root_id)],
                 "unique": [TSimpleRegex(self.c_dlt_id)],
                 "row_key": [TSimpleRegex(self.c_dlt_id)],
             },
             normalize_identifiers=False,  # already normalized
         )
-
-        for table_name in self.schema.tables.keys():
-            self.extend_table(table_name)
-
-    def extend_table(self, table_name: str) -> None:
-        """If the table has a merge write disposition, add propagation info to normalizer
-
-        Called by Schema when new table is added to schema or table is updated with partial table.
-        Table name should be normalized.
-        """
-        table = self.schema.tables.get(table_name)
-        # add root key prop when merge disposition is used or any of nested tables needs row_key
-        if not is_nested_table(table) and (
-            table.get("write_disposition") == "merge"
-            or any(
-                has_column_with_prop(t, "root_key", include_incomplete=True)
-                for t in get_nested_tables(self.schema.tables, table_name)
-            )
-        ):
-            # get row id column from table, assume that we propagate it into c_dlt_root_id always
-            c_dlt_id = get_first_column_name_with_prop(table, "row_key", include_incomplete=True)
-            self.update_normalizer_config(
-                self.schema,
-                {
-                    "propagation": {
-                        "tables": {
-                            table_name: {
-                                TColumnName(c_dlt_id or self.c_dlt_id): TColumnName(
-                                    self.c_dlt_root_id
-                                )
-                            }
-                        }
-                    }
-                },
-            )
 
     def remove_table(self, table_name: str) -> None:
         """Called by the Schema when table is removed from it."""
@@ -375,13 +318,12 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         item[self.c_dlt_load_id] = load_id
         # get table name and nesting level
         root_table_name = self._normalize_table_identifier(table_name)
-        max_nesting = self._get_table_nesting_level(root_table_name, self.max_nesting)
 
         yield from self._normalize_row(
             item,
             {},
             (root_table_name,),
-            _r_lvl=max_nesting,  # we count backwards
+            _r_lvl=0,  # we count backwards
             is_root=True,
         )
 

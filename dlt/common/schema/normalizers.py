@@ -99,19 +99,7 @@ def import_normalizers(
 
     item_normalizer = explicit_normalizers.get("json") or default_normalizers.get("json") or {}
     item_normalizer.setdefault("module", "dlt.common.normalizers.json.relational")
-    # if max_table_nesting is set, we need to set the max_table_nesting in the json_normalizer
-    if destination_capabilities and destination_capabilities.max_table_nesting is not None:
-        # TODO: this is a hack, we need a better method to do this
-        from dlt.common.normalizers.json.relational import DataItemNormalizer
 
-        try:
-            DataItemNormalizer.ensure_this_normalizer(item_normalizer)
-            item_normalizer.setdefault("config", {})
-            item_normalizer["config"]["max_nesting"] = destination_capabilities.max_table_nesting  # type: ignore[index]
-        except InvalidJsonNormalizer:
-            # not a right normalizer
-            logger.warning(f"JSON Normalizer {item_normalizer} does not support max_nesting")
-            pass
     json_module = cast(SupportsDataItemNormalizer, import_module(item_normalizer["module"]))
     explicit_normalizers["json"] = item_normalizer
     return (
