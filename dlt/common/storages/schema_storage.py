@@ -51,7 +51,7 @@ class SchemaStorage(Mapping[str, Schema]):
 
         if storage_schema is None:
             raise SchemaNotFoundError(name, self.config.schema_volume_path)
-        return Schema.from_dict(storage_schema)
+        return Schema.from_dict(storage_schema, validate_schema=False)
 
     def save_schema(self, schema: Schema) -> str:
         """Saves schema to the storage and returns the path relative to storage."""
