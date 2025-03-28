@@ -30,7 +30,6 @@ from dlt.common.schema.typing import (
     DLT_NAME_PREFIX,
     SCHEMA_ENGINE_VERSION,
     LOADS_TABLE_NAME,
-    VERSION_TABLE_NAME,
     PIPELINE_STATE_TABLE_NAME,
     TPartialTableSchema,
     TSchemaContractEntities,
@@ -64,7 +63,7 @@ from dlt.common.validation import validate_dict
 DEFAULT_SCHEMA_CONTRACT_MODE: TSchemaContractDict = {
     "tables": "evolve",
     "columns": "evolve",
-    "data_type": "evolve",
+    "data_type": "freeze",
 }
 
 
@@ -76,8 +75,6 @@ class Schema:
     data_item_normalizer: DataItemNormalizer[Any]
     """Data item normalizer used by the schema to create tables"""
 
-    version_table_name: str
-    """Normalized name of the version table"""
     loads_table_name: str
     """Normalized name of the loads table"""
     state_table_name: str
@@ -970,9 +967,6 @@ class Schema:
             self._stored_version_hash = self._stored_previous_hashes.pop(0)
 
     def _add_standard_tables(self) -> None:
-        self._schema_tables[self.version_table_name] = utils.normalize_table_identifiers(
-            utils.version_table(), self.naming
-        )
         self._schema_tables[self.loads_table_name] = utils.normalize_table_identifiers(
             utils.loads_table(), self.naming
         )
@@ -1056,7 +1050,6 @@ class Schema:
             )
             # modify dlt tables using original naming
             orig_dlt_tables = [
-                (self.version_table_name, utils.version_table()),
                 (self.loads_table_name, utils.loads_table()),
                 (self.state_table_name, utils.pipeline_state_table(add_dlt_id=True)),
             ]
@@ -1114,11 +1107,10 @@ class Schema:
         self.naming = to_naming
         # name normalization functions
         self._dlt_tables_prefix = to_naming.normalize_table_identifier(DLT_NAME_PREFIX)
-        self.version_table_name = to_naming.normalize_table_identifier(VERSION_TABLE_NAME)
         self.loads_table_name = to_naming.normalize_table_identifier(LOADS_TABLE_NAME)
         self.state_table_name = to_naming.normalize_table_identifier(PIPELINE_STATE_TABLE_NAME)
         # do a sanity check - dlt tables must start with dlt prefix
-        for table_name in [self.version_table_name, self.loads_table_name, self.state_table_name]:
+        for table_name in [self.loads_table_name, self.state_table_name]:
             if not table_name.startswith(self._dlt_tables_prefix):
                 raise SchemaCorruptedException(
                     self.name,
@@ -1186,10 +1178,6 @@ class Schema:
 
     def _from_stored_schema(self, stored_schema: TStoredSchema) -> None:
         self._schema_tables = stored_schema.get("tables") or {}
-        if self.version_table_name not in self._schema_tables:
-            raise SchemaCorruptedException(
-                stored_schema["name"], f"Schema must contain table {self.version_table_name}"
-            )
         if self.loads_table_name not in self._schema_tables:
             raise SchemaCorruptedException(
                 stored_schema["name"], f"Schema must contain table {self.loads_table_name}"

@@ -33,7 +33,7 @@ from dlt.common.schema.utils import (
     has_default_column_prop_value,
     loads_table,
     normalize_table_identifiers,
-    version_table, bump_version_if_modified,
+    bump_version_if_modified,
 )
 from dlt.common.storages import FileStorage
 from dlt.common.storages.load_package import LoadJobInfo, ParsedLoadJobFileName
@@ -124,10 +124,6 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
         sql_client: SqlClientBase[TNativeConn],
     ) -> None:
         # get definitions of the dlt tables, normalize column names and keep for later use
-        version_table_ = normalize_table_identifiers(version_table(), schema.naming)
-        self.version_table_schema_columns = ", ".join(
-            sql_client.escape_column_name(col) for col in version_table_["columns"]
-        ) # TODO remove for schemaless
         loads_table_ = normalize_table_identifiers(loads_table(), schema.naming)
         self.loads_table_schema_columns = ", ".join(
             sql_client.escape_column_name(col) for col in loads_table_["columns"]
@@ -174,22 +170,8 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
         expected_update: TSchemaTables = None,
     ) -> Optional[TSchemaTables]:
         super().update_stored_schema(only_tables, expected_update)
-        applied_update: TSchemaTables = {}
-        schema_info = self.get_stored_schema_by_hash(self.schema.stored_version_hash)
-        if schema_info is None:
-            logger.info(
-                f"Schema with hash {self.schema.stored_version_hash} not found in the storage."
-                " upgrading"
-            )
-
-            with self.maybe_ddl_transaction():
-                applied_update = self._execute_schema_update_sql(only_tables)
-        else:
-            logger.info(
-                f"Schema with hash {self.schema.stored_version_hash} inserted at"
-                f" {schema_info.inserted_at} found in storage, no upgrade required"
-            )
-        return applied_update
+        with self.maybe_ddl_transaction():
+            return self._execute_schema_update_sql(only_tables)
 
     def drop_tables(self, *tables: str, delete_schema: bool = True) -> None:
         """Drop tables in destination database and optionally delete the stored schema as well.
@@ -201,8 +183,6 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
         """
         with self.maybe_ddl_transaction():
             self.sql_client.drop_tables(*tables)
-            if delete_schema:
-                self._delete_schema_in_storage(self.schema)
 
     @contextlib.contextmanager
     def maybe_ddl_transaction(self) -> Iterator[None]:
@@ -461,18 +441,6 @@ class SqlJobClientBase(WithSqlClient, JobClientBase, WithStateSync):
             self.sql_client.escape_column_name, map(self.schema.naming.normalize_path, columns)
         )
 
-    def get_stored_schema_by_hash(self, version_hash: str) -> StorageSchemaInfo:
-        table_name = self.sql_client.make_qualified_table_name(self.schema.version_table_name)
-        (c_version_hash,) = self._norm_and_escape_columns("version_hash")
-
-        maybe_limit_clause_1, maybe_limit_clause_2 = self.sql_client._limit_clause_sql(1)
-
-        query = (
-            f"SELECT {maybe_limit_clause_1} {self.version_table_schema_columns} FROM"
-            f" {table_name} WHERE {c_version_hash} = %s {maybe_limit_clause_2};"
-        )
-        return self._row_to_schema_info(query, version_hash)
-
     def _get_info_schema_columns_query(
         self, catalog_name: Optional[str], schema_name: str, folded_table_names: List[str]
     ) -> Tuple[str, List[Any]]:
@@ -518,7 +486,6 @@ WHERE """
         # Some DB backends use bytes not characters, so decrease the limit by half,
         # assuming most of the characters in DDL encoded into single bytes.
         self.sql_client.execute_many(sql_scripts)
-        self._update_schema_in_storage(self.schema)
         return schema_update
 
     def _build_schema_update_sql(
@@ -692,40 +659,6 @@ WHERE """
         inserted_at = pendulum.instance(row[2])
 
         return StorageSchemaInfo(row[4], row[3], row[0], row[1], inserted_at, schema_str)
-
-    def _delete_schema_in_storage(self, schema: Schema) -> None:
-        """
-        Delete all stored versions with the same name as given schema.
-        Fails silently if versions table does not exist
-        """
-        name = self.sql_client.make_qualified_table_name(self.schema.version_table_name)
-        (c_schema_name,) = self._norm_and_escape_columns("schema_name")
-        self.sql_client.execute_sql(f"DELETE FROM {name} WHERE {c_schema_name} = %s;", schema.name)
-
-    def _update_schema_in_storage(self, schema: Schema) -> None:
-        # get schema string or zip
-        schema_str = json.dumps(schema.to_dict())
-        # TODO: not all databases store data as utf-8 but this exception is mostly for redshift
-        schema_bytes = schema_str.encode("utf-8")
-        if len(schema_bytes) > self.capabilities.max_text_data_type_length:
-            # compress and to base64
-            schema_str = base64.b64encode(zlib.compress(schema_bytes, level=9)).decode("ascii")
-        self._commit_schema_update(schema, schema_str)
-
-    def _commit_schema_update(self, schema: Schema, schema_str: str) -> None:
-        now_ts = pendulum.now()
-        name = self.sql_client.make_qualified_table_name(self.schema.version_table_name)
-        # values =  schema.version_hash, schema.name, schema.version, schema.ENGINE_VERSION, str(now_ts), schema_str
-        self.sql_client.execute_sql(
-            f"INSERT INTO {name}({self.version_table_schema_columns}) VALUES (%s, %s, %s, %s, %s,"
-            " %s);",
-            schema.version,
-            schema.ENGINE_VERSION,
-            now_ts,
-            schema.name,
-            schema.stored_version_hash,
-            schema_str,
-        )
 
     def verify_schema(
         self, only_tables: Iterable[str] = None, new_jobs: Iterable[ParsedLoadJobFileName] = None

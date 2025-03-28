@@ -4,7 +4,6 @@ from dlt.common.data_types import TDataType
 from dlt.common.typing import DictStrAny
 from dlt.common.schema.typing import (
     LOADS_TABLE_NAME,
-    VERSION_TABLE_NAME,
     TSimpleRegex,
     TStoredSchema,
     TTableSchemaColumns,
@@ -12,9 +11,7 @@ from dlt.common.schema.typing import (
 )
 from dlt.common.schema.exceptions import SchemaEngineNoUpgradePathException
 from dlt.common.schema.utils import (
-    get_columns_names_with_prop,
     new_table,
-    version_table,
     loads_table,
     migrate_complex_types,
 )
@@ -96,7 +93,6 @@ def migrate_schema(schema_dict: DictStrAny, from_engine: int, to_engine: int) ->
         from_engine = 4
     if from_engine == 4 and to_engine > 4:
         # replace schema versions table
-        schema_dict["tables"][VERSION_TABLE_NAME] = version_table()
         schema_dict["tables"][LOADS_TABLE_NAME] = loads_table()
         from_engine = 5
     if from_engine == 5 and to_engine > 5:

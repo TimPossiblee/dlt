@@ -587,11 +587,6 @@ class WithStateSync(ABC):
         pass
 
     @abstractmethod
-    def get_stored_schema_by_hash(self, version_hash: str) -> StorageSchemaInfo:
-        """retrieves the stored schema by hash"""
-        pass
-
-    @abstractmethod
     def get_stored_state(self, pipeline_name: str) -> Optional[StateInfo]:
         """Loads compressed state from destination storage"""
         pass

@@ -36,7 +36,6 @@ except ImportError:
 SCHEMA_ENGINE_VERSION = 11
 
 # dlt tables
-VERSION_TABLE_NAME = "_dlt_version"
 LOADS_TABLE_NAME = "_dlt_loads"
 PIPELINE_STATE_TABLE_NAME = "_dlt_pipeline_state"
 DLT_NAME_PREFIX = "_dlt"

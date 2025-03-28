@@ -943,23 +943,6 @@ class Pipeline(SupportsPipeline):
         for load_id in normalize_storage.extracted_packages.list_packages():
             normalize_storage.extracted_packages.delete_package(load_id)
 
-    @with_schemas_sync
-    def sync_schema(self, schema_name: str = None) -> TSchemaTables:
-        """Synchronizes the schema `schema_name` with the destination. If no name is provided, the default schema will be synchronized."""
-        if not schema_name and not self.default_schema_name:
-            raise PipelineConfigMissing(
-                self.pipeline_name,
-                "default_schema_name",
-                "load",
-                "Pipeline contains no schemas. Please extract any data with `extract` or `run`"
-                " methods.",
-            )
-
-        schema = self.schemas[schema_name] if schema_name else self.default_schema
-        with self._get_destination_clients(schema)[0] as client:
-            client.initialize_storage()
-            return client.update_stored_schema()
-
     def set_local_state_val(self, key: str, value: Any) -> None:
         """Sets value in local state. Local state is not synchronized with destination."""
         try:

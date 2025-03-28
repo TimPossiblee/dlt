@@ -2,6 +2,8 @@ import pendulum
 
 import dlt
 
+dlt.config["runtime.log_level"] = "INFO"
+dlt.config["load.delete_completed_jobs"] = True
 
 @dlt.resource(
     columns={"event_tstamp": {"data_type": "timestamp", "timezone": False}},
@@ -44,7 +46,8 @@ def events():
 
 p = dlt.pipeline(
     pipeline_name="chess",
+    pipelines_dir="./tmp/pipelines",
     destination=dlt.destinations.duckdb("files/data.db"),
     dataset_name="chess_data",
 )
-p.run(events(), schema_contract={"tables": "evolve", "columns": "evolve", "data_type": "freeze"})
+p.run(events())

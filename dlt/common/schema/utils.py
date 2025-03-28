@@ -22,7 +22,6 @@ from dlt.common.schema.typing import (
     SCHEMA_ENGINE_VERSION,
     LOADS_TABLE_NAME,
     SIMPLE_REGEX_PREFIX,
-    VERSION_TABLE_NAME,
     PIPELINE_STATE_TABLE_NAME,
     ColumnPropInfos,
     TColumnName,
@@ -833,31 +832,6 @@ def migrate_complex_types(table: TTableSchema, warn: bool = False) -> None:
                         stacklevel=3,
                     )
                 column["data_type"] = "json"
-
-
-def version_table() -> TTableSchema:
-    # NOTE: always add new columns at the end of the table so we have identical layout
-    # after an update of existing tables (always at the end)
-    # set to nullable so we can migrate existing tables
-    # WARNING: do not reorder the columns
-    table = new_table(
-        VERSION_TABLE_NAME,
-        columns=[
-            {
-                "name": "version",
-                "data_type": "bigint",
-                "nullable": False,
-            },
-            {"name": "engine_version", "data_type": "bigint", "nullable": False},
-            {"name": "inserted_at", "data_type": "timestamp", "nullable": False},
-            {"name": "schema_name", "data_type": "text", "nullable": False},
-            {"name": "version_hash", "data_type": "text", "nullable": False},
-            {"name": "schema", "data_type": "text", "nullable": False},
-        ],
-    )
-    table["write_disposition"] = "skip"
-    table["description"] = "Created by DLT. Tracks schema updates"
-    return table
 
 
 def loads_table() -> TTableSchema:
