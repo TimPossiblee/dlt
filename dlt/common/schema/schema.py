@@ -757,7 +757,7 @@ class Schema:
 
         Table and column names will be normalized with new naming convention, except tables that have seen data ('x-normalizer`) which will
         raise if any identifier is to be changed.
-        Default hints, preferred data types and normalize configs (ie. column propagation) are normalized as well. Regexes are included as long
+        Default hints, preferred data types and normalize configs are normalized as well. Regexes are included as long
         as textual parts can be extracted from an expression.
         """
         self._configure_normalizers(configured_normalizers(schema_name=self._schema_name))

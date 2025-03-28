@@ -37,9 +37,7 @@ def migrate_schema(schema_dict: DictStrAny, from_engine: int, to_engine: int) ->
         # use explicit None to get default settings. ignore any naming conventions
         normalizers = configured_normalizers(naming=None, json_normalizer=None)
         current["normalizers"], _, _ = import_normalizers(normalizers, normalizers)
-        current["normalizers"]["json"]["config"] = {
-            "propagation": {"root": {"_dlt_id": "_dlt_root_id"}}
-        }
+        current["normalizers"]["json"]["config"] = {}
         # move settings, convert strings to simple regexes
         d_h: Dict[TColumnDefaultHint, List[TSimpleRegex]] = schema_dict.pop("hints", {})
         for h_k, h_l in d_h.items():
@@ -133,7 +131,6 @@ def migrate_schema(schema_dict: DictStrAny, from_engine: int, to_engine: int) ->
         normalizers = schema_dict["normalizers"]
         _, naming, _ = import_normalizers(normalizers)
         c_dlt_id = naming.normalize_identifier("_dlt_id")
-        c_dlt_parent_id = naming.normalize_identifier("_dlt_parent_id")
 
         for table in schema_dict["tables"].values():
             # migrate complex -> json

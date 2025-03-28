@@ -2,20 +2,14 @@ from functools import lru_cache, partial
 from typing import (
     ClassVar,
     Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
     Type,
     cast,
-    Any,
 )
 
 from dlt.common.normalizers.exceptions import InvalidJsonNormalizer, NormalizerException
 from dlt.common.normalizers.typing import TJSONNormalizer
 from dlt.common.normalizers.utils import generate_dlt_id
-from dlt.common.typing import DictStrAny, TDataItem, StrAny
+from dlt.common.typing import DictStrAny, TDataItem
 from dlt.common.schema import Schema
 from dlt.common.schema.typing import (
     C_DLT_ID,
@@ -32,14 +26,9 @@ from dlt.common.normalizers.json import (
     wrap_in_dict,
     DataItemNormalizer as DataItemNormalizerBase,
 )
-from dlt.common.normalizers.json.typing import (
-    RelationalNormalizerConfig,
-    RelationalNormalizerConfigPropagation,
-)
+from dlt.common.normalizers.json.typing import RelationalNormalizerConfig
 from dlt.common.normalizers.json import helpers as normalize_helpers
 from dlt.common.normalizers.json.helpers import (
-    get_nested_row_hash,
-    get_propagation_mapping,
     get_row_hash,
 )
 from dlt.common.validation import validate_dict
@@ -47,22 +36,13 @@ from dlt.common.validation import validate_dict
 
 class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
     # known normalizer props
-    C_DLT_ROOT_ID = "_dlt_root_id"
-    """unique id of top level parent"""
-    C_DLT_PARENT_ID = "_dlt_parent_id"
-    """unique id of parent row"""
-    C_DLT_LIST_IDX = "_dlt_list_idx"
-    """position in the list of rows"""
     C_VALUE = "value"
     """for lists of simple types"""
 
     # other constants
-    EMPTY_KEY_IDENTIFIER = "_empty"  # replace empty keys with this
     RELATIONAL_CONFIG_TYPE: ClassVar[Type[RelationalNormalizerConfig]] = RelationalNormalizerConfig
 
     normalizer_config: RelationalNormalizerConfig
-    propagation_config: RelationalNormalizerConfigPropagation
-    _skip_primary_key: Dict[str, bool]
 
     def __init__(self, schema: Schema) -> None:
         """This item normalizer works with nested dictionaries. It flattens dictionaries and descends into lists.
@@ -77,22 +57,11 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         self.c_dlt_load_id: TColumnName = TColumnName(
             self.naming.normalize_identifier(C_DLT_LOAD_ID)
         )
-        self.c_dlt_root_id: TColumnName = TColumnName(
-            self.naming.normalize_identifier(self.C_DLT_ROOT_ID)
-        )
-        self.c_dlt_parent_id: TColumnName = TColumnName(
-            self.naming.normalize_identifier(self.C_DLT_PARENT_ID)
-        )
-        self.c_dlt_list_idx: TColumnName = TColumnName(
-            self.naming.normalize_identifier(self.C_DLT_LIST_IDX)
-        )
         self.c_value: TColumnName = TColumnName(self.naming.normalize_identifier(self.C_VALUE))
 
         # normalize config
 
         self.normalizer_config = self.schema._normalizers_config["json"].get("config") or {}  # type: ignore[assignment]
-        self.propagation_config = self.normalizer_config.get("propagation", None)
-        self._skip_primary_key = {}
         # create cached versions of helper functions
         self._get_root_row_id_type = lru_cache(maxsize=None)(
             partial(normalize_helpers.get_root_row_id_type, self.schema)
@@ -108,9 +77,6 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         )
         self._get_primary_key = lru_cache(maxsize=None)(
             partial(normalize_helpers.get_primary_key, self.schema)
-        )
-        self._is_nested_type = lru_cache(maxsize=None)(
-            partial(normalize_helpers.is_nested_type, self.schema)
         )
 
     @staticmethod
@@ -190,9 +156,6 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
             {
                 "not_null": [
                     TSimpleRegex(self.c_dlt_id),
-                    TSimpleRegex(self.c_dlt_root_id),
-                    TSimpleRegex(self.c_dlt_parent_id),
-                    TSimpleRegex(self.c_dlt_list_idx),
                     TSimpleRegex(self.c_dlt_load_id),
                 ],
                 "unique": [TSimpleRegex(self.c_dlt_id)],
@@ -202,11 +165,7 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         )
 
     def remove_table(self, table_name: str) -> None:
-        """Called by the Schema when table is removed from it."""
-        config = self.get_normalizer_config(self.schema)
-        if propagation := config.get("propagation"):
-            if tables := propagation.get("tables"):
-                tables.pop(table_name, None)
+        pass
 
     def normalize_data_item(
         self, item: TDataItem, load_id: str, table_name: str
@@ -254,28 +213,6 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         cls, schema: Schema, config: RelationalNormalizerConfig
     ) -> None:
         """Normalizes all known column identifiers according to the schema and then validates the configuration"""
-
-        def _normalize_prop(
-            mapping: Mapping[TColumnName, TColumnName]
-        ) -> Dict[TColumnName, TColumnName]:
-            return {
-                TColumnName(schema.naming.normalize_path(from_col)): TColumnName(
-                    schema.naming.normalize_path(to_col)
-                )
-                for from_col, to_col in mapping.items()
-            }
-
-        # normalize the identifiers first
-        propagation_config = config.get("propagation")
-        if propagation_config:
-            if "root" in propagation_config:
-                propagation_config["root"] = _normalize_prop(propagation_config["root"])
-            if "tables" in propagation_config:
-                for table_name in propagation_config["tables"]:
-                    propagation_config["tables"][table_name] = _normalize_prop(
-                        propagation_config["tables"][table_name]
-                    )
-
         validate_dict(
             cls.RELATIONAL_CONFIG_TYPE,
             config,
