@@ -78,19 +78,6 @@ class TablePropertiesConflictException(SchemaException):
         )
 
 
-class ParentTableNotFoundException(SchemaException):
-    def __init__(
-        self, schema_name: str, table_name: str, parent_table_name: str, explanation: str = ""
-    ) -> None:
-        self.table_name = table_name
-        self.parent_table_name = parent_table_name
-        super().__init__(
-            schema_name,
-            f"Parent table {parent_table_name} for {table_name} was not found in the"
-            f" schema.{explanation}",
-        )
-
-
 class CannotCoerceNullException(SchemaException):
     def __init__(self, schema_name: str, table_name: str, column_name: str) -> None:
         super().__init__(

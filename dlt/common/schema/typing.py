@@ -273,8 +273,6 @@ class _TTableSchemaBase(TTableProcessingHints, total=False):
     name: Optional[str]
     description: Optional[str]
     schema_contract: Optional[TSchemaContract]
-    table_sealed: Optional[bool]
-    parent: Optional[str]
     filters: Optional[TRowFilters]
     columns: TTableSchemaColumns
     resource: Optional[str]

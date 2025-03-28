@@ -10,8 +10,8 @@ else:
 
 # type definitions for json normalization function
 
-# iterator of form ((table_name, parent_table), dict) must be returned from normalization function
-TNormalizedRowIterator = Generator[Tuple[Tuple[str, str], StrAny], bool, None]
+# iterator of form (table_name, dict) must be returned from normalization function
+TNormalizedRowIterator = Generator[tuple[str, StrAny], bool, None]
 
 # type var for data item normalizer config
 TNormalizerConfig = TypeVar("TNormalizerConfig", bound=Any)

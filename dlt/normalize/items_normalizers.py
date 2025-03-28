@@ -80,7 +80,7 @@ class JsonLItemsNormalizer(ItemsNormalizer):
         return row
 
     def _normalize_chunk(
-        self, root_table_name: str, items: List[TDataItem], may_have_pua: bool, skip_write: bool
+            self, root_table_name: str, items: List[TDataItem], may_have_pua: bool, skip_write: bool
     ) -> TSchemaUpdate:
         column_schemas = self._column_schemas
         schema_update: TSchemaUpdate = {}
@@ -90,101 +90,85 @@ class JsonLItemsNormalizer(ItemsNormalizer):
 
         for item in items:
             items_gen = normalize_data_fun(item, self.load_id, root_table_name)
-            try:
-                should_descend: bool = None
-                # use send to prevent descending into child rows when row was discarded
-                while row_info := items_gen.send(should_descend):
-                    should_descend = True
-                    (table_name, parent_table), row = row_info
+            for row_info in items_gen:
+                table_name, row = row_info
 
-                    # rows belonging to filtered out tables are skipped
-                    if table_name in self._filtered_tables:
-                        # stop descending into further rows
-                        should_descend = False
-                        continue
+                # rows belonging to filtered out tables are skipped
+                if table_name in self._filtered_tables:
+                    break
 
-                    # filter row, may eliminate some or all fields
-                    row = schema.filter_row(table_name, row)
-                    # do not process empty rows
+                # filter row, may eliminate some or all fields
+                row = schema.filter_row(table_name, row)
+                # do not process empty rows
+                if not row:
+                    continue
+
+                # filter columns or full rows if schema contract said so
+                # do it before schema inference in `coerce_row` to not trigger costly migration code
+                filtered_columns = self._filtered_tables_columns.get(table_name, None)
+                if filtered_columns:
+                    row = self._filter_columns(filtered_columns, row)  # type: ignore[arg-type]
+                    # if whole row got dropped
                     if not row:
-                        should_descend = False
                         continue
 
-                    # filter columns or full rows if schema contract said so
-                    # do it before schema inference in `coerce_row` to not trigger costly migration code
-                    filtered_columns = self._filtered_tables_columns.get(table_name, None)
-                    if filtered_columns:
-                        row = self._filter_columns(filtered_columns, row)  # type: ignore[arg-type]
-                        # if whole row got dropped
+                # decode pua types
+                if may_have_pua:
+                    for k, v in row.items():
+                        row[k] = custom_pua_decode(v)  # type: ignore
+
+                # coerce row of values into schema table, generating partial table with new columns if any
+                row, partial_table = schema.coerce_row(table_name, row)
+
+                # if we detect a migration, check schema contract
+                if partial_table:
+                    schema_contract = self._table_contracts.setdefault(
+                        table_name,
+                        schema.resolve_contract_settings_for_table(table_name),
+                    )
+                    partial_table, filters = schema.apply_schema_contract(
+                        schema_contract, partial_table, data_item=row
+                    )
+                    if filters:
+                        for entity, name, mode in filters:
+                            if entity == "tables":
+                                self._filtered_tables.add(name)
+                            elif entity == "columns":
+                                filtered_columns = self._filtered_tables_columns.setdefault(
+                                    table_name, {}
+                                )
+                                filtered_columns[name] = mode
+
+                    if partial_table is None:
+                        # discard migration and row
+                        continue
+                    # theres a new table or new columns in existing table
+                    # update schema and save the change
+                    schema.update_table(partial_table, normalize_identifiers=False)
+                    table_updates = schema_update.setdefault(table_name, [])
+                    table_updates.append(partial_table)
+
+                    # update our columns
+                    column_schemas[table_name] = schema.get_table_columns(table_name)
+
+                    # apply new filters
+                    if filtered_columns and filters:
+                        row = self._filter_columns(filtered_columns, row)
+                        # do not continue if new filters skipped the full row
                         if not row:
-                            should_descend = False
                             continue
 
-                    # decode pua types
-                    if may_have_pua:
-                        for k, v in row.items():
-                            row[k] = custom_pua_decode(v)  # type: ignore
-
-                    # coerce row of values into schema table, generating partial table with new columns if any
-                    row, partial_table = schema.coerce_row(table_name, parent_table, row)
-
-                    # if we detect a migration, check schema contract
-                    if partial_table:
-                        schema_contract = self._table_contracts.setdefault(
-                            table_name,
-                            schema.resolve_contract_settings_for_table(
-                                parent_table or table_name
-                            ),  # parent_table, if present, exists in the schema
-                        )
-                        partial_table, filters = schema.apply_schema_contract(
-                            schema_contract, partial_table, data_item=row
-                        )
-                        if filters:
-                            for entity, name, mode in filters:
-                                if entity == "tables":
-                                    self._filtered_tables.add(name)
-                                elif entity == "columns":
-                                    filtered_columns = self._filtered_tables_columns.setdefault(
-                                        table_name, {}
-                                    )
-                                    filtered_columns[name] = mode
-
-                        if partial_table is None:
-                            # discard migration and row
-                            should_descend = False
-                            continue
-                        # theres a new table or new columns in existing table
-                        # update schema and save the change
-                        schema.update_table(partial_table, normalize_identifiers=False)
-                        table_updates = schema_update.setdefault(table_name, [])
-                        table_updates.append(partial_table)
-
-                        # update our columns
-                        column_schemas[table_name] = schema.get_table_columns(table_name)
-
-                        # apply new filters
-                        if filtered_columns and filters:
-                            row = self._filter_columns(filtered_columns, row)
-                            # do not continue if new filters skipped the full row
-                            if not row:
-                                should_descend = False
-                                continue
-
-                    # get current columns schema
-                    columns = column_schemas.get(table_name)
-                    if not columns:
-                        columns = schema.get_table_columns(table_name)
-                        column_schemas[table_name] = columns
-                    # store row
-                    # TODO: store all rows for particular items all together after item is fully completed
-                    #   will be useful if we implement bad data sending to a table
-                    # we skip write when discovering schema for empty file
-                    if not skip_write:
-                        self.item_storage.write_data_item(
-                            self.load_id, schema_name, table_name, row, columns
-                        )
-            except StopIteration:
-                pass
+                # get current columns schema
+                columns = column_schemas.get(table_name)
+                if not columns:
+                    columns = schema.get_table_columns(table_name)
+                    column_schemas[table_name] = columns
+                # store row
+                # we skip write when discovering schema for empty file
+                if not skip_write:
+                    self.item_storage.write_data_item(
+                        self.load_id, schema_name, table_name, row, columns
+                    )
             signals.raise_if_signalled()
         return schema_update
 

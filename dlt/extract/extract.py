@@ -55,7 +55,6 @@ def data_to_sources(
     *,
     schema: Schema = None,
     table_name: str = None,
-    parent_table_name: str = None,
     write_disposition: TWriteDispositionConfig = None,
     columns: TAnySchemaColumns = None,
     primary_key: TColumnNames = None,
@@ -70,7 +69,6 @@ def data_to_sources(
     def apply_hint_args(resource: DltResource) -> None:
         resource.apply_hints(
             table_name=table_name,
-            parent_table_name=parent_table_name,
             write_disposition=write_disposition,
             columns=columns,
             primary_key=primary_key,

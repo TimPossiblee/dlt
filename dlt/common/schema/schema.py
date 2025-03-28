@@ -53,7 +53,6 @@ from dlt.common.schema.exceptions import (
     CannotCoerceColumnException,
     CannotCoerceNullException,
     InvalidSchemaName,
-    ParentTableNotFoundException,
     SchemaCorruptedException,
     TableIdentifiersFrozen,
 )
@@ -214,7 +213,7 @@ class Schema:
         return row
 
     def coerce_row(
-        self, table_name: str, parent_table: str, row: StrAny
+        self, table_name: str, row: StrAny
     ) -> Tuple[DictStrAny, TPartialTableSchema]:
         """Fits values of fields present in `row` into a schema of `table_name`. Will coerce values into data types and infer new tables and column schemas.
 
@@ -230,7 +229,7 @@ class Schema:
         updated_table_partial: TPartialTableSchema = None
         table = self._schema_tables.get(table_name)
         if not table:
-            table = utils.new_table(table_name, parent_table)
+            table = utils.new_table(table_name)
         table_columns = table["columns"]
 
         new_row: DictStrAny = {}
@@ -409,22 +408,10 @@ class Schema:
         """Adds or merges `partial_table` into the schema. Identifiers are normalized by default.
         `from_diff`
         """
-        parent_table_name = partial_table.get("parent")
         if normalize_identifiers:
             partial_table = utils.normalize_table_identifiers(partial_table, self.naming)
 
         table_name = partial_table["name"]
-        # check if parent table present
-        if parent_table_name is not None:
-            if self._schema_tables.get(parent_table_name) is None:
-                raise ParentTableNotFoundException(
-                    self.name,
-                    table_name,
-                    parent_table_name,
-                    " This may be due to misconfigured excludes filter that fully deletes content"
-                    f" of the {parent_table_name}. Add includes that will preserve the parent"
-                    " table.",
-                )
         table = self._schema_tables.get(table_name)
         if table is None:
             # add the whole new table to SchemaTables

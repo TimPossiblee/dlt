@@ -47,7 +47,6 @@ from dlt.extract.validation import create_item_validator
 
 class TResourceHintsBase(TypedDict, total=False):
     write_disposition: Optional[TTableHintTemplate[TWriteDispositionConfig]]
-    parent: Optional[TTableHintTemplate[str]]
     primary_key: Optional[TTableHintTemplate[TColumnNames]]
     schema_contract: Optional[TTableHintTemplate[TSchemaContract]]
     table_format: Optional[TTableHintTemplate[TTableFormat]]
@@ -58,7 +57,6 @@ class TResourceHintsBase(TypedDict, total=False):
 class TResourceHints(TResourceHintsBase, total=False):
     name: TTableHintTemplate[str]
     # description: TTableHintTemplate[str]
-    # table_sealed: Optional[bool]
     columns: TTableHintTemplate[TTableSchemaColumns]
     incremental: Incremental[Any]
     file_format: TTableHintTemplate[TFileFormat]
@@ -80,7 +78,6 @@ NATURAL_CALLABLES = ["incremental", "validator", "original_columns"]
 
 def make_hints(
     table_name: TTableHintTemplate[str] = None,
-    parent_table_name: TTableHintTemplate[str] = None,
     write_disposition: TTableHintTemplate[TWriteDispositionConfig] = None,
     columns: TTableHintTemplate[TAnySchemaColumns] = None,
     primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -100,7 +97,6 @@ def make_hints(
     # create a table schema template where hints can be functions taking TDataItem
     new_template: TResourceHints = new_table(
         table_name,  # type: ignore
-        parent_table_name,  # type: ignore
         write_disposition=write_disposition,  # type: ignore
         schema_contract=schema_contract,  # type: ignore
         table_format=table_format,  # type: ignore
@@ -182,10 +178,6 @@ class DltResourceHints:
     def table_format(self) -> TTableHintTemplate[TTableFormat]:
         return None if self._hints is None else self._hints.get("table_format")
 
-    @property
-    def parent_table_name(self) -> TTableHintTemplate[str]:
-        return None if self._hints is None else self._hints.get("parent")
-
     def compute_table_schema(self, item: TDataItem = None, meta: Any = None) -> TTableSchema:
         """Computes the table schema based on hints and column definitions passed during resource creation.
         `item` parameter is used to resolve table hints based on data.
@@ -229,7 +221,6 @@ class DltResourceHints:
     def apply_hints(
         self,
         table_name: TTableHintTemplate[str] = None,
-        parent_table_name: TTableHintTemplate[str] = None,
         write_disposition: TTableHintTemplate[TWriteDispositionConfig] = None,
         columns: TTableHintTemplate[TAnySchemaColumns] = None,
         primary_key: TTableHintTemplate[TColumnNames] = None,
@@ -252,7 +243,6 @@ class DltResourceHints:
         Skip the argument or pass None to leave the existing hint.
         Pass empty value (for a particular type i.e. "" for a string) to remove a hint.
 
-        parent_table_name (str, optional): A name of parent table if foreign relation is defined.
         incremental (Incremental, optional): Enables the incremental loading for a resource.
 
         Please note that for efficient incremental loading, the resource must be aware of the Incremental by accepting it as one if its arguments and then using are to skip already loaded data.
@@ -279,10 +269,9 @@ class DltResourceHints:
 
         if t is None:
             # if there is no template yet, create and set a new one.
-            default_wd = None if parent_table_name else DEFAULT_WRITE_DISPOSITION
+            default_wd = DEFAULT_WRITE_DISPOSITION
             t = make_hints(
                 table_name=table_name,
-                parent_table_name=parent_table_name,
                 write_disposition=write_disposition or default_wd,
                 columns=columns,
                 primary_key=primary_key,
@@ -299,11 +288,6 @@ class DltResourceHints:
                     t["name"] = table_name
                 else:
                     t.pop("name", None)
-            if parent_table_name is not None:
-                if parent_table_name:
-                    t["parent"] = parent_table_name
-                else:
-                    t.pop("parent", None)
             if write_disposition:
                 t["write_disposition"] = write_disposition
             if columns is not None:
@@ -422,7 +406,6 @@ class DltResourceHints:
     ) -> None:
         self.apply_hints(
             table_name=hints_template.get("name"),
-            parent_table_name=hints_template.get("parent"),
             write_disposition=hints_template.get("write_disposition"),
             columns=hints_template.get("original_columns"),
             primary_key=hints_template.get("primary_key"),

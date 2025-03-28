@@ -106,40 +106,6 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         flattened_row[self.c_dlt_id] = row_id
         return row_id
 
-    def _normalize_row(
-            self,
-            dict_row: DictStrAny,
-            table_name: str,
-    ) -> TNormalizedRowIterator:
-        # normalize current row
-        normalized_row: dict = {}
-        for k, v in dict_row.items():
-            if k.strip():
-                norm_k = self._normalize_identifier(k)
-            else:
-                msg = "Found empty key during Normalization."
-                raise NormalizerException(msg)
-
-            if norm_k in normalized_row:
-                msg = f"Found duplicate key '{norm_k}' in row during Normalization."
-                raise NormalizerException(msg)
-
-            normalized_row[norm_k] = v
-
-        # infer record hash or leave existing primary key if present
-        row_id = normalized_row.get(self.c_dlt_id, None)
-        if not row_id:
-            self._add_row_id(table_name, dict_row, normalized_row)
-
-        # yield parent table first
-        should_descend = yield (
-            (table_name, None),
-            normalized_row,
-        )
-        # TODO unsure whether still needed for nestless logic
-        if should_descend is False:
-            return
-
     def extend_schema(self) -> None:
         """Extends Schema with normalizer-specific hints and settings.
 
@@ -168,7 +134,7 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         pass
 
     def normalize_data_item(
-        self, item: TDataItem, load_id: str, table_name: str
+            self, item: TDataItem, load_id: str, table_name: str
     ) -> TNormalizedRowIterator:
         # wrap items that are not dictionaries in dictionary, otherwise they cannot be processed by the JSON normalizer
         if not isinstance(item, dict):
@@ -180,10 +146,27 @@ class DataItemNormalizer(DataItemNormalizerBase[RelationalNormalizerConfig]):
         # TODO do this before for all date items in chunk, save compute
         root_table_name = self._normalize_table_identifier(table_name)
 
-        yield from self._normalize_row(
-            item,
-            root_table_name,
-        )
+        # normalize current row
+        normalized_item: dict = {}
+        for k, v in item.items():
+            if k.strip():
+                norm_k = self._normalize_identifier(k)
+            else:
+                msg = "Found empty key during Normalization."
+                raise NormalizerException(msg)
+
+            if norm_k in normalized_item:
+                msg = f"Found duplicate key '{norm_k}' in row during Normalization."
+                raise NormalizerException(msg)
+
+            normalized_item[norm_k] = v
+
+        # infer record hash or leave existing primary key if present
+        row_id = normalized_item.get(self.c_dlt_id, None)
+        if not row_id:
+            self._add_row_id(table_name, item, normalized_item)
+
+        yield table_name, normalized_item
 
     @classmethod
     def ensure_this_normalizer(cls, norm_config: TJSONNormalizer) -> None:

@@ -50,7 +50,6 @@ from dlt.common.schema.typing import (
 )
 from dlt.common.schema.exceptions import (
     CannotCoerceColumnException,
-    ParentTableNotFoundException,
     TablePropertiesConflictException,
     InvalidSchemaName,
 )
@@ -325,15 +324,6 @@ def validate_stored_schema(stored_schema: TStoredSchema) -> None:
     validate_dict_ignoring_xkeys(
         spec=TStoredSchema, doc=stored_schema, path=".", validator_f=simple_regex_validator
     )
-    # check child parent relationships
-    for table_name, table in stored_schema["tables"].items():
-        parent_table_name = table.get("parent")
-        if parent_table_name:
-            if parent_table_name not in stored_schema["tables"]:
-                raise ParentTableNotFoundException(
-                    stored_schema["name"], table_name, parent_table_name
-                )
-
 
 def autodetect_sc_type(detection_fs: Sequence[TTypeDetections], t: Type[Any], v: Any) -> TDataType:
     if detection_fs:
@@ -508,11 +498,6 @@ def ensure_compatible_tables(
             schema_name, tab_a["name"], "name", tab_a["name"], tab_b["name"]
         )
     table_name = tab_a["name"]
-    # check if table properties can be merged
-    if tab_a.get("parent") != tab_b.get("parent"):
-        raise TablePropertiesConflictException(
-            schema_name, table_name, "parent", tab_a.get("parent"), tab_b.get("parent")
-        )
 
     if not ensure_columns:
         return
@@ -594,9 +579,6 @@ def normalize_table_identifiers(table: TTableSchema, naming: NamingConvention) -
 
     table = copy(table)
     table["name"] = naming.normalize_tables_path(table["name"])
-    parent = table.get("parent")
-    if parent:
-        table["parent"] = naming.normalize_tables_path(parent)
     columns = table.get("columns")
     if columns:
         new_columns: TTableSchemaColumns = {}
@@ -947,7 +929,6 @@ def pipeline_state_table(add_dlt_id: bool = False) -> TTableSchema:
 
 def new_table(
     table_name: str,
-    parent_table_name: str = None,
     write_disposition: TWriteDisposition = None,
     columns: Sequence[TColumnSchema] = None,
     validate_schema: bool = False,
@@ -974,8 +955,6 @@ def new_table(
         table["file_format"] = file_format
     if references:
         table["references"] = references
-    if parent_table_name:
-        table["parent"] = parent_table_name
     else:
         # set only for root tables
         if not write_disposition:
