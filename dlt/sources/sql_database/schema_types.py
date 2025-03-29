@@ -8,8 +8,8 @@ from typing import (
     Callable,
     Union,
     Dict,
+    TypeAlias
 )
-from typing_extensions import TypeAlias
 
 from sqlalchemy.exc import NoReferencedTableError
 

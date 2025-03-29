@@ -7,9 +7,6 @@ from dlt.common.configuration import configspec, resolve_type
 from dlt.common.configuration.exceptions import ConfigurationValueError
 from dlt.common.configuration.specs import CredentialsConfiguration
 from dlt.common.configuration.specs import (
-    GcpServiceAccountCredentials,
-    AwsCredentials,
-    GcpOAuthCredentials,
     AnyAzureCredentials,
     BaseConfiguration,
     SFTPCredentials,
@@ -48,10 +45,7 @@ class LoadStorageConfiguration(BaseConfiguration):
 
 
 FileSystemCredentials = Union[
-    AwsCredentials,
-    GcpServiceAccountCredentials,
     AnyAzureCredentials,
-    GcpOAuthCredentials,
     SFTPCredentials,
 ]
 
@@ -159,10 +153,6 @@ class FilesystemConfiguration(BaseConfiguration):
     """
 
     PROTOCOL_CREDENTIALS: ClassVar[Dict[str, Any]] = {
-        "gs": Union[GcpServiceAccountCredentials, GcpOAuthCredentials],
-        "gcs": Union[GcpServiceAccountCredentials, GcpOAuthCredentials],
-        "gdrive": Union[GcpServiceAccountCredentials, GcpOAuthCredentials],
-        "s3": AwsCredentials,
         "az": AnyAzureCredentials,
         "abfs": AnyAzureCredentials,
         "adl": AnyAzureCredentials,
@@ -180,7 +170,6 @@ class FilesystemConfiguration(BaseConfiguration):
     """Indicates read only filesystem access. Will enable caching"""
     kwargs: Optional[DictStrAny] = None
     client_kwargs: Optional[DictStrAny] = None
-    deltalake_storage_options: Optional[DictStrAny] = None
 
     @property
     def protocol(self) -> str:

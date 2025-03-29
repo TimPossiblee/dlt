@@ -55,7 +55,6 @@ class SettingsTomlProvider(CustomLoaderDocProvider):
 
         If toml file under `settings_dir` is not found it will look into Google Colab userdata object for a value
         with name `file_name` and load toml file from it.
-        If that one is not found, it will try to load Streamlit `secrets.toml` file.
 
         If none of the files exist, an empty provider is created.
 
@@ -124,56 +123,6 @@ class SettingsTomlProvider(CustomLoaderDocProvider):
     def to_toml(self) -> str:
         return tomlkit.dumps(self._config_toml)
 
-    def _read_google_colab_secrets(self, name: str, file_name: str) -> tomlkit.TOMLDocument:
-        """Try to load the toml from google colab userdata object"""
-        try:
-            from google.colab import userdata
-            from dlt.common.runtime.exec_info import is_notebook
-
-            # make sure we work in interactive mode (get_ipython() is available)
-            # when dlt cli is run, userdata is available but without a kernel
-            if not is_notebook():
-                return None
-
-            try:
-                return tomlkit.loads(userdata.get(file_name))
-            except (userdata.SecretNotFoundError, userdata.NotebookAccessError):
-                # document not found if secret does not exist or we have no permission
-                return None
-        except ImportError:
-            # document not found if google colab context does not exist
-            return None
-
-    def _read_streamlit_secrets(self, name: str, file_name: str) -> tomlkit.TOMLDocument:
-        """Try to load the toml from Streamlit secrets."""
-        # only secrets can come from streamlit
-        if not self.supports_secrets:
-            return None
-
-        try:
-            import streamlit as st
-            import streamlit.runtime as st_r  # type: ignore
-
-            if not st_r.exists():
-                return None
-
-            # Access the entire secrets store
-            secrets_ = st.secrets
-            if secrets_.load_if_toml_exists():
-                # Convert the dictionary to a TOML string
-                toml_str = tomlkit.dumps(secrets_.to_dict())
-
-                # Parse the TOML string into a TOMLDocument
-                toml_doc = tomlkit.parse(toml_str)
-                return toml_doc
-            else:
-                return None
-        except tomlkit.exceptions.TOMLKitError:
-            raise
-        except Exception:
-            # Not in a Streamlit context
-            return None
-
     def _read_toml_file(self, toml_path: str) -> tomlkit.TOMLDocument:
         if os.path.isfile(toml_path):
             with open(toml_path, "r", encoding="utf-8") as f:
@@ -197,13 +146,7 @@ class SettingsTomlProvider(CustomLoaderDocProvider):
                     else:
                         result_toml = update_dict_nested(loaded_toml, result_toml)
 
-            # if nothing was found, try to load from google colab or streamlit
             if result_toml is None:
-                if (result_toml := self._read_google_colab_secrets(name, file_name)) is not None:
-                    pass
-                elif (result_toml := self._read_streamlit_secrets(name, file_name)) is not None:
-                    pass
-                else:
                     result_toml = tomlkit.document()
 
             return result_toml

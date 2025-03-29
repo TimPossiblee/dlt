@@ -1,5 +1,4 @@
 from typing import Sequence, Type, cast, overload, Optional
-from typing_extensions import TypeVar
 
 from dlt.common.configuration.specs import known_sections
 from dlt.common.schema import Schema
@@ -8,6 +7,7 @@ from dlt.common.schema.typing import (
     TTableFormat,
     TWriteDispositionConfig,
     TSchemaContract,
+    TypeVar
 )
 
 from dlt.common.typing import TSecretStrValue, Any

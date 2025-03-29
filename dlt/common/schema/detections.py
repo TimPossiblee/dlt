@@ -1,8 +1,6 @@
 import datetime  # noqa: 251
 from typing import Any, Optional, Type
 
-from hexbytes import HexBytes
-
 from dlt.common.pendulum import pendulum
 from dlt.common.wei import Wei
 from dlt.common.data_types import TDataType
@@ -67,13 +65,6 @@ def is_large_integer(t: Type[Any], v: Any) -> Optional[TDataType]:
         if v > 2**64 // 2 - 1:
             return "wei"
 
-    return None
-
-
-def is_hexbytes_to_text(t: Type[Any], v: Any) -> Optional[TDataType]:
-    # HexBytes should be converted to text
-    if issubclass(t, HexBytes):
-        return "text"
     return None
 
 

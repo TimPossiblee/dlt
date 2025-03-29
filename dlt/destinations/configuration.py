@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import Optional
-from typing_extensions import Self
+from typing import Optional, Self
 
 import dlt
 import dlt.common

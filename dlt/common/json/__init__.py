@@ -4,13 +4,7 @@ import dataclasses
 from datetime import date, datetime, time  # noqa: I251
 from typing import Any, Callable, List, Protocol, IO, Union, Dict
 from uuid import UUID
-from hexbytes import HexBytes
 from enum import Enum
-
-try:
-    from pydantic import BaseModel as PydanticBaseModel
-except ImportError:
-    PydanticBaseModel = None  # type: ignore[misc]
 
 from dlt.common import known_env
 from dlt.common.pendulum import pendulum
@@ -55,16 +49,12 @@ def _custom_encode(obj: Any) -> JsonSerializable:
         return obj.isoformat()
     elif isinstance(obj, UUID):
         return str(obj)
-    elif isinstance(obj, HexBytes):
-        return obj.hex()
     elif isinstance(obj, bytes):
         return base64.b64encode(obj).decode("ascii")
     elif hasattr(obj, "asdict"):
         return obj.asdict()  # type: ignore
     elif hasattr(obj, "_asdict"):
         return obj._asdict()  # type: ignore
-    elif PydanticBaseModel and isinstance(obj, PydanticBaseModel):
-        return obj.model_dump()
     elif dataclasses.is_dataclass(obj):
         return dataclasses.asdict(obj)  # type: ignore
     elif isinstance(obj, Enum):
@@ -83,7 +73,6 @@ _DECIMAL = chr(PUA_START)
 _DATETIME = chr(PUA_START + 1)
 _DATE = chr(PUA_START + 2)
 _UUIDT = chr(PUA_START + 3)
-_HEXBYTES = chr(PUA_START + 4)
 _B64BYTES = chr(PUA_START + 5)
 _WEI = chr(PUA_START + 6)
 _TIME = chr(PUA_START + 7)
@@ -105,16 +94,10 @@ DECODERS: TPuaDecoders = [
     _datetime_decoder,
     pendulum.Date.fromisoformat,
     UUID,
-    HexBytes,
     base64.b64decode,
     Wei,
     pendulum.Time.fromisoformat,
 ]
-# Alternate decoders that decode date/time/datetime to stdlib types instead of pendulum
-PY_DATETIME_DECODERS = list(DECODERS)
-PY_DATETIME_DECODERS[1] = datetime.fromisoformat
-PY_DATETIME_DECODERS[2] = date.fromisoformat
-PY_DATETIME_DECODERS[7] = time.fromisoformat
 # how many decoders?
 PUA_CHARACTER_MAX = len(DECODERS)
 
@@ -135,8 +118,6 @@ def _custom_pua_encode(obj: Any) -> JsonSerializable:
         return _TIME + obj.isoformat()
     elif isinstance(obj, UUID):
         return _UUIDT + str(obj)
-    elif isinstance(obj, HexBytes):
-        return _HEXBYTES + obj.hex()
     elif isinstance(obj, bytes):
         return _B64BYTES + base64.b64encode(obj).decode("ascii")
     elif hasattr(obj, "asdict"):
@@ -145,8 +126,6 @@ def _custom_pua_encode(obj: Any) -> JsonSerializable:
         return obj._asdict()  # type: ignore[no-any-return]
     elif dataclasses.is_dataclass(obj):
         return dataclasses.asdict(obj)  # type: ignore[arg-type]
-    elif PydanticBaseModel and isinstance(obj, PydanticBaseModel):
-        return obj.dict(by_alias=True)
     elif isinstance(obj, Enum):
         # Enum value is just int or str
         return obj.value  # type: ignore[no-any-return]

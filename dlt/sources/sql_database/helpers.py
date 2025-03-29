@@ -47,7 +47,7 @@ from dlt.common.libs.sql_alchemy import (
     TextClause,
 )
 
-TableBackend = Literal["sqlalchemy", "pyarrow", "pandas", "connectorx"]
+TableBackend = Literal["sqlalchemy", "pyarrow", "pandas"]
 SelectClause = Union[SelectAny, TextClause]
 TQueryAdapter = Union[
     Callable[[SelectAny, Table], SelectClause],
@@ -172,10 +172,7 @@ class TableLoader:
         # make copy of kwargs
         backend_kwargs = dict(backend_kwargs or {})
         query = self.make_query()
-        if self.backend == "connectorx":
-            yield from self._load_rows_connectorx(query, backend_kwargs)
-        else:
-            yield from self._load_rows(query, backend_kwargs)
+        yield from self._load_rows(query, backend_kwargs)
 
     def _load_rows(self, query: SelectClause, backend_kwargs: Dict[str, Any]) -> TDataItem:
         with self.engine.connect() as conn:
@@ -202,37 +199,6 @@ class TableLoader:
                         columns=_add_missing_columns(self.columns, columns),
                         tz=backend_kwargs.get("tz", "UTC"),
                     )
-
-    def _load_rows_connectorx(
-        self, query: SelectClause, backend_kwargs: Dict[str, Any]
-    ) -> Iterator[TDataItem]:
-        try:
-            import connectorx as cx
-        except ImportError:
-            raise MissingDependencyException("Connector X table backend", ["connectorx"])
-
-        # default settings
-        backend_kwargs = {
-            "return_type": "arrow2",
-            "protocol": "binary",
-            **backend_kwargs,
-        }
-        conn = backend_kwargs.pop(
-            "conn",
-            self.engine.url._replace(
-                drivername=self.engine.url.get_backend_name()
-            ).render_as_string(hide_password=False),
-        )
-        try:
-            query_str = str(query.compile(self.engine, compile_kwargs={"literal_binds": True}))
-        except CompileError as ex:
-            raise NotImplementedError(
-                f"Query for table {self.table.name} could not be compiled to string to execute it"
-                " on ConnectorX. If you are on SQLAlchemy 1.4.x the causing exception is due to"
-                f" literals that cannot be rendered, upgrade to 2.x: {str(ex)}"
-            ) from ex
-        df = cx.read_sql(conn, query_str, **backend_kwargs)
-        yield df
 
 
 def table_rows(
@@ -320,28 +286,6 @@ def engine_from_credentials(
     engine = create_engine(credentials, **backend_kwargs)
     setattr(engine, "may_dispose_after_use", may_dispose_after_use)  # noqa
     return engine  # type: ignore[no-any-return]
-
-
-def unwrap_json_connector_x(field: str) -> TDataItem:
-    """Creates a transform function to be added with `add_map` that will unwrap JSON columns
-    ingested via connectorx. Such columns are additionally quoted and translate SQL NULL to json "null"
-    """
-    import pyarrow.compute as pc
-    import pyarrow as pa
-
-    def _unwrap(table: TDataItem) -> TDataItem:
-        col_index = table.column_names.index(field)
-        # remove quotes
-        column = table[field]  # pc.replace_substring_regex(table[field], '"(.*)"', "\\1")
-        # convert json null to null
-        column = pc.replace_with_mask(
-            column,
-            pc.equal(column, "null").combine_chunks(),
-            pa.scalar(None, pa.large_string()),
-        )
-        return table.set_column(col_index, table.schema.field(col_index), column)
-
-    return _unwrap
 
 
 def remove_nullability_adapter(table: Table) -> Table:

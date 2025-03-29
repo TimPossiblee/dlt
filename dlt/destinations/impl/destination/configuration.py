@@ -1,6 +1,5 @@
 import dataclasses
-from typing import Optional, Final, Callable, Union, Any
-from typing_extensions import ParamSpec
+from typing import Optional, Final, Callable, Union, Any, ParamSpec
 
 from dlt.common.configuration import configspec, ConfigurationValueError
 from dlt.common.destination import TLoaderFileFormat

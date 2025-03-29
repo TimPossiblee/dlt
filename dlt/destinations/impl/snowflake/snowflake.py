@@ -12,21 +12,17 @@ from dlt.common.destination.client import (
     CredentialsConfiguration,
     SupportsStagingDestination,
 )
-from dlt.common.configuration.specs import (
-    AwsCredentialsWithoutDefaults,
-    AzureCredentialsWithoutDefaults,
-)
+from dlt.common.configuration.specs import AzureCredentialsWithoutDefaults
 from dlt.common.schema.utils import get_columns_names_with_prop
 from dlt.common.storages.configuration import FilesystemConfiguration, ensure_canonical_az_url
 from dlt.common.storages.file_storage import FileStorage
 from dlt.common.schema import TColumnSchema, Schema, TColumnHint
 from dlt.common.schema.typing import TColumnType, TTableSchema
 
-from dlt.common.storages.fsspec_filesystem import AZURE_BLOB_STORAGE_PROTOCOLS, S3_PROTOCOLS
+from dlt.common.storages.fsspec_filesystem import AZURE_BLOB_STORAGE_PROTOCOLS
 from dlt.common.typing import TLoaderFileFormat
 from dlt.common.utils import uniq_id
 from dlt.destinations.job_client_impl import SqlJobClientWithStagingDataset
-from dlt.destinations.exceptions import LoadJobTerminalException
 
 from dlt.destinations.impl.snowflake.configuration import SnowflakeClientConfiguration
 from dlt.destinations.impl.snowflake.sql_client import SnowflakeSqlClient
@@ -129,18 +125,10 @@ class SnowflakeLoadJob(RunnableLoadJob, HasFollowupJobs):
 
         if not is_local:
             bucket_scheme = parsed_file_url.scheme
-            # referencing an external s3/azure stage does not require explicit AWS credentials
-            if bucket_scheme in AZURE_BLOB_STORAGE_PROTOCOLS + S3_PROTOCOLS and stage_name:
+            # referencing an external azure stage does not require explicit credentials
+            if bucket_scheme in AZURE_BLOB_STORAGE_PROTOCOLS and stage_name:
                 from_clause = f"FROM '@{stage_name}'"
                 files_clause = f"FILES = ('{parsed_file_url.path.lstrip('/')}')"
-            # referencing an staged files via a bucket URL requires explicit AWS credentials
-            elif (
-                bucket_scheme in S3_PROTOCOLS
-                and staging_credentials
-                and isinstance(staging_credentials, AwsCredentialsWithoutDefaults)
-            ):
-                credentials_clause = f"""CREDENTIALS=(AWS_KEY_ID='{staging_credentials.aws_access_key_id}' AWS_SECRET_KEY='{staging_credentials.aws_secret_access_key}')"""
-                from_clause = f"FROM '{file_url}'"
             elif (
                 bucket_scheme in AZURE_BLOB_STORAGE_PROTOCOLS
                 and staging_credentials
@@ -154,18 +142,9 @@ class SnowflakeLoadJob(RunnableLoadJob, HasFollowupJobs):
                 )
                 from_clause = f"FROM '{file_url}'"
             else:
-                # ensure that gcs bucket path starts with gcs://, this is a requirement of snowflake
-                file_url = file_url.replace("gs://", "gcs://")
-                if not stage_name:
-                    # when loading from bucket stage must be given
-                    raise LoadJobTerminalException(
-                        file_url,
-                        f"Cannot load from bucket path {file_url} without a stage name. See"
-                        " https://dlthub.com/docs/dlt-ecosystem/destinations/snowflake for"
-                        " instructions on setting up the `stage_name`",
-                    )
-                from_clause = f"FROM @{stage_name}/"
-                files_clause = f"FILES = ('{urlparse(file_url).path.lstrip('/')}')"
+                # TODO add correct error handling
+                msg = "Unsupported external stage"
+                raise ValueError(msg)
         else:
             from_clause = f"FROM {local_stage_file_path}"
 

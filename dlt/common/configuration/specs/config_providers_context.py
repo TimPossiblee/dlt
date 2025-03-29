@@ -8,7 +8,6 @@ from dlt.common.configuration.providers import (
     ContextProvider,
 )
 from dlt.common.configuration.specs import (
-    GcpServiceAccountCredentials,
     BaseConfiguration,
     configspec,
     known_sections,
@@ -18,7 +17,6 @@ from dlt.common.typing import Annotated
 
 @configspec
 class ConfigProvidersConfiguration(BaseConfiguration):
-    enable_google_secrets: bool = False
     only_toml_fragments: bool = True
 
     # always look in providers
@@ -74,23 +72,4 @@ def _extra_providers() -> List[ConfigProvider]:
     from dlt.common.configuration.resolve import resolve_configuration
 
     providers_config = resolve_configuration(ConfigProvidersConfiguration())
-    extra_providers = []
-    if providers_config.enable_google_secrets:
-        extra_providers.append(
-            _google_secrets_provider(only_toml_fragments=providers_config.only_toml_fragments)
-        )
-    return extra_providers
-
-
-def _google_secrets_provider(
-    only_secrets: bool = True, only_toml_fragments: bool = True
-) -> ConfigProvider:
-    from dlt.common.configuration.resolve import resolve_configuration
-    from dlt.common.configuration.providers.google_secrets import GoogleSecretsProvider
-
-    c = resolve_configuration(
-        GcpServiceAccountCredentials(), sections=(known_sections.PROVIDERS, "google_secrets")
-    )
-    return GoogleSecretsProvider(
-        c, only_secrets=only_secrets, only_toml_fragments=only_toml_fragments
-    )
+    return []

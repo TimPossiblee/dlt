@@ -1,8 +1,4 @@
 from dlt.common.configuration.specs import (
-    GcpServiceAccountCredentials,
-    GcpOAuthCredentials,
-    GcpCredentials,
-    AwsCredentials,
     AzureCredentials,
 )
 from dlt.common.configuration.specs import ConnectionStringCredentials
@@ -12,10 +8,6 @@ from dlt.common.storages.configuration import FileSystemCredentials, FilesystemC
 
 
 __all__ = [
-    "GcpServiceAccountCredentials",
-    "GcpOAuthCredentials",
-    "GcpCredentials",
-    "AwsCredentials",
     "AzureCredentials",
     "ConnectionStringCredentials",
     "OAuth2Credentials",

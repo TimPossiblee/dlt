@@ -3,6 +3,7 @@ import inspect
 from typing import Callable, Any, List, Type
 
 from dlt.common.exceptions import DictValidationException
+
 from dlt.common.typing import (
     StrAny,
     get_literal_args,

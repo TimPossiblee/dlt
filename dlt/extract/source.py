@@ -10,8 +10,8 @@ from typing import (
     Sequence,
     Tuple,
     Any,
+    Self
 )
-from typing_extensions import Self
 
 from dlt.common.configuration.resolve import inject_section
 from dlt.common.configuration.specs import known_sections

@@ -14,8 +14,8 @@ from typing import (
     Dict,
     Any,
     TypeVar,
+    Annotated
 )
-from typing_extensions import Annotated
 import datetime  # noqa: 251
 
 from dlt.common import logger, pendulum
@@ -247,12 +247,7 @@ class DestinationClientDwhConfiguration(DestinationClientConfiguration):
 
     @classmethod
     def needs_dataset_name(cls) -> bool:
-        """Checks if configuration requires dataset name to be present. Empty datasets are allowed
-        ie. for schema-less destinations like weaviate or clickhouse
-        """
-        fields = cls.get_resolvable_fields()
-        dataset_name_type = fields["dataset_name"]
-        return not is_optional_type(dataset_name_type)
+        return True
 
     def _make_dataset_name(self, schema_name: str) -> str:
         if not schema_name:

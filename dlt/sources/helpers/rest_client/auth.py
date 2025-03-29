@@ -12,8 +12,8 @@ from typing import (
     Optional,
     Union,
     cast,
+    Annotated
 )
-from typing_extensions import Annotated
 from requests.auth import AuthBase
 from requests import PreparedRequest, Session as BaseSession  # noqa: I251
 

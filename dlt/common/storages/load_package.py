@@ -19,9 +19,8 @@ from typing import (
     Set,
     cast,
     Any,
-    Tuple,
+    Tuple, NotRequired,
 )
-from typing_extensions import NotRequired
 
 from dlt.common.typing import TypedDict, get_args, DictStrAny, SupportsHumanize
 from dlt.common.pendulum import pendulum

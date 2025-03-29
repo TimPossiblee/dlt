@@ -49,7 +49,6 @@ class TypeMapperImpl(DataTypeMapper):
                 " destination. One or both of these flags were used in column"
                 f" '{column.get('name')}'."
             )
-            # TODO: refactor lancedb and wevavite to make table object required
             if table:
                 message += f" in table '{table.get('name')}'."
 
@@ -67,7 +66,6 @@ class TypeMapperImpl(DataTypeMapper):
             return self.sct_to_unbound_dbt["decimal"]
         return self.sct_to_dbt["decimal"] % (precision_tup[0], precision_tup[1])
 
-    # TODO: refactor lancedb and weaviate to make table object required
     def to_destination_type(self, column: TColumnSchema, table: PreparedTableSchema) -> str:
         sc_t = column["data_type"]
         if sc_t == "bigint":

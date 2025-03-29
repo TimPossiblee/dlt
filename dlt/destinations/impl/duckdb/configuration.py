@@ -1,9 +1,7 @@
 import dataclasses
 import threading
 from typing import Any, ClassVar, Dict, Final, List, Optional, Type, Union
-from pathvalidate import is_valid_filepath
 
-import dlt.common
 from dlt.common.configuration import configspec
 from dlt.common.configuration.specs import ConnectionStringCredentials
 from dlt.common.configuration.specs.exceptions import InvalidConnectionString
@@ -75,10 +73,8 @@ class DuckDbBaseCredentials(ConnectionStringCredentials):
         try:
             super().parse_native_representation(native_value)
         except InvalidConnectionString:
-            if native_value == ":pipeline:" or is_valid_filepath(native_value, platform="auto"):
-                self.database = native_value
-            else:
-                raise
+            self.database = native_value
+
 
     @property
     def never_borrowed(self) -> bool:

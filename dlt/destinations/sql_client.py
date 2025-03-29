@@ -18,9 +18,10 @@ from typing import (
     List,
     Generator,
     cast,
+    Self,
 )
 
-from dlt.common.typing import TFun, TypedDict, Self
+from dlt.common.typing import TFun, TypedDict
 from dlt.common.schema.typing import TTableSchemaColumns
 from dlt.common.destination import DestinationCapabilitiesContext
 from dlt.common.utils import concat_strings_with_limit

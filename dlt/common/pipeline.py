@@ -20,9 +20,8 @@ from typing import (
     TypeVar,
     Mapping,
     Literal,
+    NotRequired
 )
-from typing_extensions import NotRequired
-
 from dlt.common.typing import TypedDict
 from dlt.common.configuration import configspec
 from dlt.common.configuration import known_sections

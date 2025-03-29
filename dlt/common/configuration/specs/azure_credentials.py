@@ -8,7 +8,7 @@ from dlt.common.configuration.specs import (
     CredentialsWithDefault,
     configspec,
 )
-from dlt.common.configuration.specs.mixins import WithObjectStoreRsCredentials, WithPyicebergConfig
+from dlt.common.configuration.specs.mixins import WithObjectStoreRsCredentials
 from dlt import version
 from dlt.common.utils import without_none
 
@@ -42,7 +42,7 @@ class AzureCredentialsBase(CredentialsConfiguration, WithObjectStoreRsCredential
 
 
 @configspec
-class AzureCredentialsWithoutDefaults(AzureCredentialsBase, WithPyicebergConfig):
+class AzureCredentialsWithoutDefaults(AzureCredentialsBase):
     """Credentials for Azure Blob Storage, compatible with adlfs"""
 
     azure_storage_account_key: Optional[TSecretStrValue] = None
@@ -58,13 +58,6 @@ class AzureCredentialsWithoutDefaults(AzureCredentialsBase, WithPyicebergConfig)
             sas_token=self.azure_storage_sas_token,
             account_host=self.azure_account_host,
         )
-
-    def to_pyiceberg_fileio_config(self) -> Dict[str, Any]:
-        return {
-            "adlfs.account-name": self.azure_storage_account_name,
-            "adlfs.account-key": self.azure_storage_account_key,
-            "adlfs.sas-token": self.azure_storage_sas_token,
-        }
 
     def create_sas_token(self) -> None:
         try:
@@ -89,7 +82,7 @@ class AzureCredentialsWithoutDefaults(AzureCredentialsBase, WithPyicebergConfig)
 
 
 @configspec
-class AzureServicePrincipalCredentialsWithoutDefaults(AzureCredentialsBase, WithPyicebergConfig):
+class AzureServicePrincipalCredentialsWithoutDefaults(AzureCredentialsBase):
     azure_tenant_id: str = None
     azure_client_id: str = None
     azure_client_secret: TSecretStrValue = None
@@ -102,14 +95,6 @@ class AzureServicePrincipalCredentialsWithoutDefaults(AzureCredentialsBase, With
             client_id=self.azure_client_id,
             client_secret=self.azure_client_secret,
         )
-
-    def to_pyiceberg_fileio_config(self) -> Dict[str, Any]:
-        return {
-            "adlfs.account-name": self.azure_storage_account_name,
-            "adlfs.tenant-id": self.azure_tenant_id,
-            "adlfs.client-id": self.azure_client_id,
-            "adlfs.client-secret": self.azure_client_secret,
-        }
 
 
 @configspec

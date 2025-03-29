@@ -1,8 +1,7 @@
 from __future__ import annotations
 import multiprocessing
-from typing import Callable, Union, cast, TypeVar
+from typing import Callable, Union, cast, TypeVar, ParamSpec
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor, Future
-from typing_extensions import ParamSpec
 
 from dlt.common import logger
 from dlt.common.configuration.container import Container

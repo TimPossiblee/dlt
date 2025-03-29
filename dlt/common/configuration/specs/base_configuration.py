@@ -18,9 +18,8 @@ from typing import (
     overload,
     ClassVar,
     TypeVar,
-    Literal,
+    Literal, dataclass_transform,
 )
-from typing_extensions import dataclass_transform
 from functools import wraps
 
 if TYPE_CHECKING:

@@ -870,7 +870,7 @@ def _merge_resource_endpoints(
         }
     # merge columns
     if (default_columns := default_config.get("columns")) and (columns := config.get("columns")):
-        # merge only native dlt formats, skip pydantic and others
+        # merge only native dlt formats, skip others
         if isinstance(columns, (list, dict)) and isinstance(default_columns, (list, dict)):
             # normalize columns
             columns = ensure_table_schema_columns(columns)

@@ -11,9 +11,9 @@ from typing import (
     Union,
     Any,
     Optional,
-    Mapping,
+    Self
 )
-from typing_extensions import TypeVar, Self
+from typing_extensions import TypeVar
 
 from dlt.common import logger
 from dlt.common.configuration.inject import get_fun_spec, with_config

@@ -1,5 +1,4 @@
-from typing import cast, Any, Optional, Dict, Sequence, Mapping, Union
-from typing_extensions import Self
+from typing import cast, Any, Optional, Dict, Sequence, Mapping, Self
 
 from dlt.common import logger
 from dlt.common.schema.typing import (

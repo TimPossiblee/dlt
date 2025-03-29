@@ -123,7 +123,6 @@ class ValidateItem(ItemTransform[TDataItem]):
     """Base class for validators of data items.
 
     Subclass should implement the `__call__` method to either return the data item(s) or raise `extract.exceptions.ValidationError`.
-    See `PydanticValidator` for possible implementation.
     """
 
     placement_affinity: ClassVar[float] = 0.9  # stick to end but less than incremental

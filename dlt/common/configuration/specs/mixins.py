@@ -12,13 +12,3 @@ class WithObjectStoreRsCredentials(ABC):
         https://docs.rs/object_store/latest/object_store/
         """
         pass
-
-
-class WithPyicebergConfig(ABC):
-    @abstractmethod
-    def to_pyiceberg_fileio_config(self) -> Dict[str, Any]:
-        """Returns `pyiceberg` FileIO configuration dictionary.
-
-        https://py.iceberg.apache.org/configuration/#fileio
-        """
-        pass

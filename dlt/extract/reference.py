@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from importlib import import_module
 from typing import (
     Callable,
     Dict,
@@ -10,8 +9,9 @@ from typing import (
     overload,
     ClassVar,
     Type,
+    Self,
 )
-from typing_extensions import Self, TypeVar
+from typing_extensions import TypeVar
 
 from dlt.common import logger
 from dlt.common.configuration.specs import BaseConfiguration, known_sections

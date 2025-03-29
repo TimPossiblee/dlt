@@ -3,7 +3,7 @@ from datetime import datetime, date  # noqa: I251
 import inspect
 import os
 from re import Pattern as _REPattern
-from types import FunctionType
+from types import FunctionType, get_original_bases
 from typing import (
     Callable,
     ClassVar,
@@ -26,29 +26,22 @@ from typing import (
     Generator,
     NamedTuple,
     Sequence,
-)
-
-from typing_extensions import (
-    ForwardRef,
     Annotated,
     Never,
     ParamSpec,
     TypeAlias,
     Concatenate,
-    Unpack,
-    Self,
     Generic,
     get_args,
     TypeVar,
     get_origin,
-    get_type_hints,
-    get_origin,
-    get_original_bases,
+    is_typeddict as _is_typeddict,
+    get_type_hints as _get_type_hints,
+    TypedDict as _TypedDict
 )
 
-from typing_extensions import is_typeddict as _is_typeddict
-
-from typing_extensions import TypedDict  # noqa: I251
+get_type_hints = _get_type_hints
+TypedDict = _TypedDict
 
 try:
     from types import UnionType  # type: ignore[attr-defined]

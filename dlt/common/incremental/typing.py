@@ -1,6 +1,6 @@
-from typing import Any, Callable, List, Literal, Optional, Sequence, TypeVar, Union
+from typing import Any, Callable, List, Literal, Optional, Sequence, TypeVar, Union, TypedDict
 
-from dlt.common.typing import TSortOrder, TTableHintTemplate, TColumnNames, TypedDict
+from dlt.common.typing import TSortOrder, TTableHintTemplate, TColumnNames
 
 TCursorValue = TypeVar("TCursorValue", bound=Any)
 LastValueFunc = Callable[[Sequence[TCursorValue]], Any]

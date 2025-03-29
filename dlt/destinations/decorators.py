@@ -1,8 +1,7 @@
 import functools
 
 import inspect
-from typing import Any, Type, Optional, Callable, Union, overload
-from typing_extensions import Concatenate
+from typing import Any, Type, Optional, Callable, Union, overload, Concatenate
 from dlt.common.destination.reference import DestinationReference
 from dlt.common.reflection.spec import get_spec_name_from_f
 from dlt.common.typing import AnyFun

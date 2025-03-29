@@ -12,8 +12,11 @@ from typing import (
     Type,
     NewType,
     Union,
+    TypedDict,
+    get_args
 )
-from typing_extensions import Never
+
+from typing_extensions import TypeVar as _TypeVar
 
 from dlt.common.data_types import TDataType
 from dlt.common.normalizers.typing import TNormalizersConfig
@@ -21,16 +24,9 @@ from dlt.common.typing import (
     TSortOrder,
     TAnyDateTime,
     TLoaderFileFormat,
-    TColumnNames,
-    TypedDict,
-    get_args,
 )
 
-try:
-    from pydantic import BaseModel as _PydanticBaseModel
-except ImportError:
-    _PydanticBaseModel = Never  # type: ignore[assignment, misc]
-
+TypeVar = _TypeVar
 
 # current version of schema engine
 SCHEMA_ENGINE_VERSION = 11
@@ -139,7 +135,7 @@ for prop in COLUMN_PROPS:
 TTableFormat = Literal["iceberg", "delta", "hive", "native"]
 TFileFormat = Literal[Literal["preferred"], TLoaderFileFormat]
 TTypeDetections = Literal[
-    "timestamp", "iso_timestamp", "iso_date", "large_integer", "hexbytes_to_text", "wei_to_double"
+    "timestamp", "iso_timestamp", "iso_date", "large_integer", "wei_to_double"
 ]
 TTypeDetectionFunc = Callable[[Type[Any], Any], Optional[TDataType]]
 
@@ -180,7 +176,7 @@ TTableSchemaColumns = Dict[str, TColumnSchema]
 
 
 TAnySchemaColumns = Union[
-    TTableSchemaColumns, Sequence[TColumnSchema], _PydanticBaseModel, Type[_PydanticBaseModel]
+    TTableSchemaColumns, Sequence[TColumnSchema]
 ]
 
 TSimpleRegex = NewType("TSimpleRegex", str)

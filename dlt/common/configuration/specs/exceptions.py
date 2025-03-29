@@ -32,44 +32,6 @@ class InvalidConnectionString(NativeValueError):
         super().__init__(spec, native_value, msg)
 
 
-class InvalidGoogleNativeCredentialsType(NativeValueError):
-    def __init__(self, spec: Type[Any], native_value: Any):
-        msg = (
-            f"Credentials {spec.__name__} accept a string with serialized credentials json file or"
-            " an instance of Credentials object from google.* namespace. The value passed is of"
-            f" type {type(native_value)}"
-        )
-        super().__init__(spec, native_value, msg)
-
-
-class InvalidGoogleServicesJson(NativeValueError):
-    def __init__(self, spec: Type[Any], native_value: Any):
-        msg = (
-            f"The expected representation for {spec.__name__} is a string with serialized service"
-            " account credentials, where at least 'project_id', 'private_key' and 'client_email`"
-            " keys are present"
-        )
-        super().__init__(spec, native_value, msg)
-
-
-class InvalidGoogleOauth2Json(NativeValueError):
-    def __init__(self, spec: Type[Any], native_value: Any):
-        msg = (
-            f"The expected representation for {spec.__name__} is a string with serialized oauth2"
-            " user info and may be wrapped in 'install'/'web' node - depending of oauth2 app type."
-        )
-        super().__init__(spec, native_value, msg)
-
-
-class InvalidBoto3Session(NativeValueError):
-    def __init__(self, spec: Type[Any], native_value: Any):
-        msg = (
-            f"The expected representation for {spec.__name__} is and instance of boto3.Session"
-            " containing credentials"
-        )
-        super().__init__(spec, native_value, msg)
-
-
 class ObjectStoreRsCredentialsException(ConfigurationException):
     pass
 

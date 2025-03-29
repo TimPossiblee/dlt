@@ -12,8 +12,8 @@ from typing import (
     Any,
     TypeVar,
     Generic,
+    TypeAlias
 )
-from typing_extensions import TypeAlias
 import inspect
 
 from dlt.common import logger

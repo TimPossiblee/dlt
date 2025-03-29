@@ -20,15 +20,13 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-from fsspec import AbstractFileSystem, register_implementation, get_filesystem_class
+from fsspec import AbstractFileSystem, get_filesystem_class
 from fsspec.core import url_to_fs
 
 from dlt import version
 from dlt.common.typing import TypedDict
 from dlt.common.pendulum import pendulum
 from dlt.common.configuration.specs import (
-    GcpCredentials,
-    AwsCredentials,
     AzureCredentials,
     SFTPCredentials,
 )
@@ -65,7 +63,6 @@ MTIME_DISPATCH = {
     "gcs": lambda f: ensure_pendulum_datetime(f["updated"]),
     "file": lambda f: ensure_pendulum_datetime(f["mtime"]),
     "memory": lambda f: ensure_pendulum_datetime(f["created"]),
-    "gdrive": lambda f: ensure_pendulum_datetime(f["modifiedTime"]),
     "sftp": lambda f: ensure_pendulum_datetime(f["mtime"]),
 }
 # Support aliases
@@ -76,17 +73,13 @@ MTIME_DISPATCH["abfss"] = MTIME_DISPATCH["az"]
 
 # Map of protocol to a filesystem type
 CREDENTIALS_DISPATCH: Dict[str, Callable[[FilesystemConfiguration], DictStrAny]] = {
-    "s3": lambda config: cast(AwsCredentials, config.credentials).to_s3fs_credentials(),
     "az": lambda config: cast(AzureCredentials, config.credentials).to_adlfs_credentials(),
-    "gs": lambda config: cast(GcpCredentials, config.credentials).to_gcs_credentials(),
-    "gdrive": lambda config: {"credentials": cast(GcpCredentials, config.credentials)},
     "sftp": lambda config: cast(SFTPCredentials, config.credentials).to_fsspec_credentials(),
 }
 CREDENTIALS_DISPATCH["adl"] = CREDENTIALS_DISPATCH["az"]
 CREDENTIALS_DISPATCH["abfs"] = CREDENTIALS_DISPATCH["az"]
 CREDENTIALS_DISPATCH["azure"] = CREDENTIALS_DISPATCH["az"]
 CREDENTIALS_DISPATCH["abfss"] = CREDENTIALS_DISPATCH["az"]
-CREDENTIALS_DISPATCH["gcs"] = CREDENTIALS_DISPATCH["gs"]
 
 # Default kwargs for protocol
 DEFAULT_KWARGS = {
@@ -99,9 +92,6 @@ DEFAULT_KWARGS["azure"] = DEFAULT_KWARGS["az"]
 DEFAULT_KWARGS["abfss"] = DEFAULT_KWARGS["az"]
 
 AZURE_BLOB_STORAGE_PROTOCOLS = ["az", "azure", "adl", "abfss", "abfs"]
-S3_PROTOCOLS = ["s3", "s3a"]
-GCS_PROTOCOLS = ["gs", "gcs"]
-
 
 def fsspec_filesystem(
     protocol: str,
@@ -141,11 +131,6 @@ def prepare_fsspec_args(config: FilesystemConfiguration) -> DictStrAny:
         "skip_instance_cache": True,
     }
     credentials = CREDENTIALS_DISPATCH.get(protocol, lambda _: {})(config)
-
-    if protocol == "gdrive":
-        from dlt.common.storages.fsspecs.google_drive import GoogleDriveFileSystem
-
-        register_implementation("gdrive", GoogleDriveFileSystem, "GoogleDriveFileSystem")
 
     fs_kwargs.update(DEFAULT_KWARGS.get(protocol, {}))
 

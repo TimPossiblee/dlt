@@ -44,12 +44,6 @@ from dlt.extract.items import (
 )
 
 try:
-    from dlt.common.libs import pydantic
-except MissingDependencyException:
-    pydantic = None
-
-
-try:
     from dlt.common.libs import pyarrow
 except MissingDependencyException:
     pyarrow = None
@@ -101,7 +95,7 @@ def ensure_table_schema_columns(columns: TAnySchemaColumns) -> TTableSchemaColum
     can be used in resource schema.
 
     Args:
-        columns: A dict of column schemas, a list of column schemas, or a pydantic model
+        columns: A dict of column schemas, a list of column schemas
     """
     if isinstance(columns, C_Mapping):
         # fill missing names in short form was used
@@ -111,10 +105,6 @@ def ensure_table_schema_columns(columns: TAnySchemaColumns) -> TTableSchemaColum
     elif isinstance(columns, Sequence):
         # Assume list of columns
         return {col["name"]: col for col in columns}
-    elif pydantic is not None and (
-        isinstance(columns, pydantic.BaseModel) or issubclass(columns, pydantic.BaseModel)
-    ):
-        return pydantic.pydantic_to_table_schema_columns(columns)
 
     raise ValueError(f"Unsupported columns type: {type(columns)}")
 

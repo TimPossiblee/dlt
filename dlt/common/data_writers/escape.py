@@ -29,27 +29,9 @@ def _escape_extended(
     return "{}{}{}".format(prefix, escape_re.sub(lambda x: escape_dict[x.group(0)], v), "'")
 
 
-def escape_redshift_literal(v: Any) -> Any:
-    if isinstance(v, str):
-        # https://www.postgresql.org/docs/9.3/sql-syntax-lexical.html
-        # looks like this is the only thing we need to escape for Postgres > 9.1
-        # redshift keeps \ as escape character which is pre 9 behavior
-        return _escape_extended(v, prefix="'")
-    if isinstance(v, bytes):
-        return f"from_hex('{v.hex()}')"
-    if isinstance(v, (datetime, date, time)):
-        return f"'{v.isoformat()}'"
-    if isinstance(v, (list, dict)):
-        return "json_parse(%s)" % _escape_extended(json.dumps(v), prefix="'")
-    if v is None:
-        return "NULL"
-
-    return str(v)
-
-
 def escape_postgres_literal(v: Any) -> Any:
     if isinstance(v, str):
-        # we escape extended string which behave like the redshift string
+        # we escape extended string which behave like the postgres string
         return _escape_extended(v)
     if isinstance(v, (datetime, date, time)):
         return f"'{v.isoformat()}'"
@@ -65,29 +47,12 @@ def escape_postgres_literal(v: Any) -> Any:
 
 def escape_duckdb_literal(v: Any) -> Any:
     if isinstance(v, str):
-        # we escape extended string which behave like the redshift string
+        # we escape extended string which behave like the postgres string
         return _escape_extended(v)
     if isinstance(v, (datetime, date, time)):
         return f"'{v.isoformat()}'"
     if isinstance(v, (list, dict)):
         return _escape_extended(json.dumps(v))
-    if isinstance(v, bytes):
-        return f"from_base64('{base64.b64encode(v).decode('ascii')}')"
-    if v is None:
-        return "NULL"
-
-    return str(v)
-
-
-def escape_lancedb_literal(v: Any) -> Any:
-    if isinstance(v, str):
-        # we escape extended string which behave like the redshift string
-        return _escape_extended(v, prefix="'")
-    if isinstance(v, (datetime, date, time)):
-        return f"'{v.isoformat()}'"
-    if isinstance(v, (list, dict)):
-        return _escape_extended(json.dumps(v), prefix="'")
-    # TODO: check how binaries are represented in fusion
     if isinstance(v, bytes):
         return f"from_base64('{base64.b64encode(v).decode('ascii')}')"
     if v is None:
@@ -105,82 +70,14 @@ MS_SQL_ESCAPE_DICT = {
 MS_SQL_ESCAPE_RE = _make_sql_escape_re(MS_SQL_ESCAPE_DICT)
 
 
-def escape_redshift_identifier(v: str) -> str:
+def escape_postgres_identifier(v: str) -> str:
     return '"' + v.replace('"', '""').replace("\\", "\\\\") + '"'
-
-
-escape_postgres_identifier = escape_redshift_identifier
-escape_athena_identifier = escape_postgres_identifier
-escape_dremio_identifier = escape_postgres_identifier
-
-
-def escape_hive_identifier(v: str) -> str:
-    # https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical
-    return "`" + v.replace("\\", "\\\\").replace("`", "\\`") + "`"
 
 
 def escape_snowflake_identifier(v: str) -> str:
     # Snowcase uppercase all identifiers unless quoted. Match this here so queries on information schema work without issue
     # See also https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
     return escape_postgres_identifier(v)
-
-
-escape_databricks_identifier = escape_hive_identifier
-
-
-DATABRICKS_ESCAPE_DICT = {"'": "\\'", "\\": "\\\\", "\n": "\\n", "\r": "\\r"}
-
-
-def escape_databricks_literal(v: Any) -> Any:
-    if isinstance(v, str):
-        return _escape_extended(v, prefix="'", escape_dict=DATABRICKS_ESCAPE_DICT)
-    if isinstance(v, (datetime, date, time)):
-        return f"'{v.isoformat()}'"
-    if isinstance(v, (list, dict)):
-        return _escape_extended(json.dumps(v), prefix="'", escape_dict=DATABRICKS_ESCAPE_DICT)
-    if isinstance(v, bytes):
-        return f"X'{v.hex()}'"
-    return "NULL" if v is None else str(v)
-
-
-# https://github.com/ClickHouse/ClickHouse/blob/master/docs/en/sql-reference/syntax.md#string
-CLICKHOUSE_ESCAPE_DICT = {
-    "'": "''",
-    "\\": "\\\\",
-    "\n": "\\n",
-    "\t": "\\t",
-    "\b": "\\b",
-    "\f": "\\f",
-    "\r": "\\r",
-    "\0": "\\0",
-    "\a": "\\a",
-    "\v": "\\v",
-}
-
-CLICKHOUSE_ESCAPE_RE = _make_sql_escape_re(CLICKHOUSE_ESCAPE_DICT)
-
-
-def escape_clickhouse_literal(v: Any) -> Any:
-    if isinstance(v, str):
-        return _escape_extended(
-            v, prefix="'", escape_dict=CLICKHOUSE_ESCAPE_DICT, escape_re=CLICKHOUSE_ESCAPE_RE
-        )
-    if isinstance(v, (datetime, date, time)):
-        return f"'{v.isoformat()}'"
-    if isinstance(v, (list, dict)):
-        return _escape_extended(
-            json.dumps(v),
-            prefix="'",
-            escape_dict=CLICKHOUSE_ESCAPE_DICT,
-            escape_re=CLICKHOUSE_ESCAPE_RE,
-        )
-    if isinstance(v, bytes):
-        return f"'{v.hex()}'"
-    return "NULL" if v is None else str(v)
-
-
-def escape_clickhouse_identifier(v: str) -> str:
-    return "`" + v.replace("`", "``").replace("\\", "\\\\") + "`"
 
 
 def format_datetime_literal(v: pendulum.DateTime, precision: int = 6, no_tz: bool = False) -> str:
@@ -195,22 +92,3 @@ def format_datetime_literal(v: pendulum.DateTime, precision: int = 6, no_tz: boo
     elif precision < 3:
         timespec = "seconds"
     return "'" + v.isoformat(sep=" ", timespec=timespec) + "'"
-
-
-def format_bigquery_datetime_literal(
-    v: pendulum.DateTime, precision: int = 6, no_tz: bool = False
-) -> str:
-    """Returns BigQuery-adjusted datetime literal by prefixing required `TIMESTAMP` indicator.
-
-    Also works for Presto-based engines.
-    """
-    # https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#timestamp_literals
-    return "TIMESTAMP " + format_datetime_literal(v, precision, no_tz)
-
-
-def format_clickhouse_datetime_literal(
-    v: pendulum.DateTime, precision: int = 6, no_tz: bool = False
-) -> str:
-    """Returns clickhouse compatibel function"""
-    datetime = format_datetime_literal(v, precision, True)
-    return f"toDateTime64({datetime}, {precision}, '{v.tzinfo}')"

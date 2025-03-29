@@ -4,14 +4,13 @@ import re
 import stat
 import errno
 import shutil
-import pathvalidate
 from typing import IO, Any, Optional, List, cast
 from dlt.common.typing import AnyFun
 
 from dlt.common.utils import encoding_for_mode, uniq_id
 
 
-FILE_COMPONENT_INVALID_CHARACTERS = re.compile(r"[.%{}]")
+FILE_COMPONENT_INVALID_CHARACTERS = re.compile(r"[^\w]")
 
 
 class FileStorage:
@@ -285,17 +284,9 @@ class FileStorage:
 
     @staticmethod
     def validate_file_name_component(name: str) -> None:
-        # Universal platform bans several characters allowed in POSIX ie. | < \ or "COM1" :)
-        try:
-            pathvalidate.validate_filename(name, platform="Universal")
-        except pathvalidate.error.ValidationError as val_ex:
-            if val_ex.reason != pathvalidate.ErrorReason.INVALID_LENGTH:
-                raise
-        # component cannot contain "."
         if FILE_COMPONENT_INVALID_CHARACTERS.search(name):
-            raise pathvalidate.error.InvalidCharError(
-                description="Component name cannot contain the following characters: . % { }"
-            )
+            msg =f"Component name '{name}' contains invalid characters."
+            raise ValueError(msg)
 
     @staticmethod
     def rmtree_del_ro(action: AnyFun, name: str, exc: Any) -> Any:

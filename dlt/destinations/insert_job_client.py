@@ -28,7 +28,6 @@ class InsertValuesLoadJob(RunnableLoadJob, HasFollowupJobs):
                 self._sql_client.execute_fragments(fragments)
 
     def _insert(self, qualified_table_name: str, file_path: str) -> Iterator[List[str]]:
-        # WARNING: maximum redshift statement is 16MB https://docs.aws.amazon.com/redshift/latest/dg/c_redshift-sql.html
         # the procedure below will split the inserts into max_query_length // 2 packs
         with FileStorage.open_zipsafe_ro(file_path, "r", encoding="utf-8") as f:
             header = f.readline()

@@ -151,7 +151,7 @@ class JsonIncremental(IncrementalTransform):
         """Finds value in row at cursor defined by self.cursor_path.
 
         Will use compiled JSONPath if present.
-        Otherwise, reverts to field access if row is dict, Pydantic model, or of other class.
+        Otherwise, reverts to field access if row is dict or of other class.
         """
         key_exc: Type[Exception] = IncrementalCursorPathHasValueNone
         if self._compiled_cursor_path:
@@ -167,7 +167,7 @@ class JsonIncremental(IncrementalTransform):
                 try:
                     row_value = row[self.cursor_path]
                 except TypeError:
-                    # supports Pydantic models and other classes
+                    # supports classes
                     row_value = getattr(row, self.cursor_path)
             except (KeyError, AttributeError):
                 # attr not found so raise a proper exception

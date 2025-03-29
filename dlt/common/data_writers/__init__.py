@@ -9,9 +9,7 @@ from dlt.common.data_writers.writers import (
 )
 from dlt.common.data_writers.buffered import BufferedDataWriter, new_file_id
 from dlt.common.data_writers.escape import (
-    escape_redshift_literal,
-    escape_redshift_identifier,
-    escape_hive_identifier,
+    escape_postgres_identifier,
 )
 
 __all__ = [
@@ -24,7 +22,5 @@ __all__ = [
     "TDataItemFormat",
     "BufferedDataWriter",
     "new_file_id",
-    "escape_redshift_literal",
-    "escape_redshift_identifier",
-    "escape_hive_identifier",
+    "escape_postgres_identifier",
 ]

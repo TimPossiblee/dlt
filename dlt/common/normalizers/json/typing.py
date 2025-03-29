@@ -1,4 +1,4 @@
-from dlt.common.typing import TypedDict
+from typing import TypedDict
 
 
 class RelationalNormalizerConfig(TypedDict, total=False):
